@@ -14,35 +14,93 @@ export default async function PostDetail({ params }: { params: Promise<{ id: str
     .eq('id', id)
     .single()
 
-  if (!post) return <p className="p-6">Post not found. Error: {error?.message}</p>
+  if (!post) return (
+    <main style={{ background: '#080c18', minHeight: '100vh' }} className="flex items-center justify-center">
+      <p style={{ color: '#8b92a5' }}>Post not found. {error?.message}</p>
+    </main>
+  )
 
   return (
-    <main className="max-w-xl mx-auto p-6">
-      <div className="flex gap-2 items-center mb-4">
-        <span className={`text-xs font-semibold uppercase px-2 py-1 rounded-full ${
-          post.type === 'lost' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'
-        }`}>
-          {post.type}
-        </span>
-        <span className="text-xs text-gray-400">{post.category}</span>
-      </div>
+    <main style={{ background: '#080c18', minHeight: '100vh' }} className="px-4 py-8">
+      <div className="max-w-xl mx-auto">
 
-      <h1 className="text-2xl font-bold">{post.title}</h1>
-      <p className="text-sm text-gray-500 mt-1">📍 {post.location}</p>
-      <p className="mt-4 text-gray-300">{post.description}</p>
+        {/* Card */}
+        <div className="rounded-2xl overflow-hidden" style={{ background: '#0d1225', border: '1px solid rgba(255,255,255,0.06)' }}>
 
-      {post.verification_question && (
-        <div className="mt-6 border rounded-xl p-4">
-          <p className="text-sm font-semibold mb-1">To claim this item, answer:</p>
-          <p className="text-gray-300">{post.verification_question}</p>
+          {/* Image */}
+          {post.photo_url && (
+            <div className="relative h-64 overflow-hidden">
+              <img src={post.photo_url} alt={post.title} className="w-full h-full object-cover" />
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, #0d1225cc, transparent)' }} />
+            </div>
+          )}
+
+          <div className="p-6">
+            {/* Badge + date */}
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
+                style={post.type === 'lost'
+                  ? { background: '#3d1515', color: '#f87171', border: '1px solid #7f1d1d' }
+                  : { background: '#14301f', color: '#4ade80', border: '1px solid #14532d' }}>
+                {post.type}
+              </span>
+              <span className="text-sm" style={{ color: '#8b92a5' }}>
+                {new Date(post.created_at).toLocaleString('en-IN', {
+                  day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true
+                })}
+              </span>
+            </div>
+
+            {/* Title */}
+            <h1 className="text-2xl font-bold leading-snug" style={{ color: '#f0f2f5' }}>
+              {post.title}
+            </h1>
+
+            {/* Meta */}
+            <div className="flex items-center gap-3 mt-2">
+              <p className="text-sm" style={{ color: '#8b92a5' }}>📍 {post.location}</p>
+              {post.category && (
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.06)', color: '#8b92a5' }}>
+                  {post.category}
+                </span>
+              )}
+            </div>
+
+            {/* Description */}
+            {post.description && (
+              <p className="mt-4 text-sm leading-relaxed" style={{ color: '#8b92a5' }}>
+                {post.description}
+              </p>
+            )}
+
+            {/* Verification question */}
+            {post.verification_question && (
+              <div className="mt-6 rounded-xl p-4" style={{ background: '#111830', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#4a5068' }}>
+                  To claim, answer this:
+                </p>
+                <p className="text-sm" style={{ color: '#f0f2f5' }}>
+                  {post.verification_question}
+                </p>
+              </div>
+            )}
+
+            {/* CTA */}
+            <Link href={`/posts/${id}/claim`}>
+              <button className="mt-6 w-full py-3 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                style={{ background: '#185FA5' }}>
+                Claim This Item
+              </button>
+            </Link>
+
+            {/* Back */}
+            <Link href="/dashboard" className="block mt-4 text-center text-xs"
+              style={{ color: '#4a5068' }}>
+              ← Back to dashboard
+            </Link>
+          </div>
         </div>
-      )}
-
-      <Link href={`/posts/${id}/claim`}>
-        <button className="mt-6 w-full bg-black text-white py-2 rounded-lg font-semibold">
-          Claim This Item
-        </button>
-      </Link>
+      </div>
     </main>
   )
 }

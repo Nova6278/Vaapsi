@@ -8,64 +8,90 @@ export default async function NotificationsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Fetch all notifications for this user, newest first
   const { data: notifications, error } = await supabase
     .from('notifications')
     .select('*')
     .order('created_at', { ascending: false })
 
-  if (error) {
-    return (
-      <main className="max-w-2xl mx-auto p-6">
-        <h1 className="text-2xl font-bold mb-4">Notifications</h1>
-        <p className="text-red-500">Failed to load notifications.</p>
-      </main>
-    )
-  }
+  if (error) return (
+    <main style={{ background: '#080c18', minHeight: '100vh' }} className="flex items-center justify-center">
+      <p style={{ color: '#f87171' }}>Failed to load notifications.</p>
+    </main>
+  )
 
-  // Mark all unread ones as read (fire and forget)
-  const unreadIds = (notifications ?? [])
-    .filter(n => !n.is_read)
-    .map(n => n.id)
-
+  const unreadIds = (notifications ?? []).filter(n => !n.is_read).map(n => n.id)
   if (unreadIds.length > 0) {
-    await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .in('id', unreadIds)
+    await supabase.from('notifications').update({ is_read: true }).in('id', unreadIds)
   }
+
+  const isConfirmed = (msg: string) => msg.includes('confirmed')
+  const isRejected = (msg: string) => msg.includes('rejected')
 
   return (
-    <main className="max-w-2xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">Notifications</h1>
+    <main style={{ background: '#080c18', minHeight: '100vh' }} className="px-4 py-8">
+      <div className="max-w-xl mx-auto">
 
-      {(!notifications || notifications.length === 0) ? (
-        <p className="text-gray-500">You have no notifications yet.</p>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {notifications.map(n => (
-            <li
-              key={n.id}
-              className={`border rounded-lg p-4 ${
-                !n.is_read ? 'bg-blue-50 border-blue-200' : 'bg-white'
-              }`}
-            >
-              <p className="text-sm">{n.message}</p>
-              <p className="text-xs text-gray-500 mt-1">
-                {new Date(n.created_at).toLocaleString()}
-              </p>
-              {n.claim_id && (
-                <Link
-                  href="/my-posts"
-                  className="text-xs text-blue-600 underline mt-2 inline-block"
-                >
-                  View my posts →
-                </Link>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+        <div className="mb-6">
+          <h1 className="text-xl font-bold" style={{ color: '#f0f2f5' }}>Notifications</h1>
+          <p className="text-sm mt-1" style={{ color: '#8b92a5' }}>
+            {notifications?.length ?? 0} total
+          </p>
+        </div>
+
+        {(!notifications || notifications.length === 0) && (
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <p className="text-4xl mb-4">🔔</p>
+            <p style={{ color: '#8b92a5' }}>No notifications yet.</p>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-3">
+          {notifications?.map(n => {
+            const confirmed = isConfirmed(n.message)
+            const rejected = isRejected(n.message)
+
+            return (
+              <div key={n.id} className="rounded-2xl p-5"
+                style={{
+                  background: '#0d1225',
+                  border: `1px solid ${!n.is_read ? '#185FA5' : 'rgba(255,255,255,0.06)'}`,
+                }}>
+
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    {/* dot for unread */}
+                    {!n.is_read && (
+                      <span className="w-2 h-2 rounded-full shrink-0 mt-0.5" style={{ background: '#185FA5' }} />
+                    )}
+                    {/* type icon */}
+                    <span className="text-base">
+                      {confirmed ? '🎉' : rejected ? '❌' : '🔔'}
+                    </span>
+                  </div>
+                  <span className="text-xs shrink-0" style={{ color: '#4a5068' }}>
+                    {new Date(n.created_at).toLocaleString('en-IN', {
+                      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true
+                    })}
+                  </span>
+                </div>
+
+                <p className="text-sm mt-3 leading-relaxed" style={{ color: '#f0f2f5' }}>
+                  {n.message}
+                </p>
+
+                {n.claim_id && (
+                  <div className="mt-4 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                    <Link href="/my-posts"
+                      className="text-xs font-medium" style={{ color: '#185FA5' }}>
+                      View my posts →
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
     </main>
   )
 }

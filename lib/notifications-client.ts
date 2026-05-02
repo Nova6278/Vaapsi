@@ -1,5 +1,3 @@
-import { createBrowserClient } from "@supabase/ssr";
-
 type NotificationInput = {
   userId: string;
   message: string;
@@ -11,21 +9,13 @@ export async function createNotificationClient({
   message,
   claimId,
 }: NotificationInput) {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
-  const { error } = await supabase.from("notifications").insert({
-    user_id: userId,
-    message,
-    claim_id: claimId ?? null,
-  });
-
-  if (error) {
-    console.error("Failed to create notification:", error);
-    return { success: false, error };
+  try {
+    await fetch("/api/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, message, claimId }),
+    });
+  } catch (err) {
+    console.error("Notification failed:", err);
   }
-
-  return { success: true };
 }
