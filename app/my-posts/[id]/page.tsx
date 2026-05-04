@@ -2,15 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { createNotificationClient } from "@/lib/notifications-client";
 
 export default function PostClaims() {
   const params = useParams();
+  const router = useRouter();
   const postId = params.id as string;
   const [claims, setClaims] = useState<any[]>([]);
   const [post, setPost] = useState<{ title: string; type: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [unauthorized, setUnauthorized] = useState(false);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,16 +20,38 @@ export default function PostClaims() {
   );
 
   useEffect(() => {
-    const fetch = async () => {
-      const [{ data: claimsData }, { data: postData }] = await Promise.all([
-        supabase.from("claims").select("*").eq("post_id", postId),
-        supabase.from("posts").select("title, type").eq("id", postId).single(),
-      ]);
+    const fetchData = async () => {
+      // 1. Check who is logged in
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      // 2. Fetch post and verify ownership
+      const { data: postData } = await supabase
+        .from("posts")
+        .select("title, type, user_id")
+        .eq("id", postId)
+        .single();
+
+      if (!postData || postData.user_id !== user.id) {
+        setUnauthorized(true);
+        setLoading(false);
+        return;
+      }
+
+      // 3. Only fetch claims if user owns the post
+      const { data: claimsData } = await supabase
+        .from("claims")
+        .select("*")
+        .eq("post_id", postId);
+
+      setPost({ title: postData.title, type: postData.type });
       setClaims(claimsData ?? []);
-      setPost(postData);
       setLoading(false);
     };
-    fetch();
+    fetchData();
   }, [postId]);
 
   const updateClaim = async (claimId: string, status: "confirmed" | "rejected") => {
@@ -49,6 +73,25 @@ export default function PostClaims() {
   if (loading) return (
     <main style={{ background: '#080c18', minHeight: '100vh' }} className="flex items-center justify-center">
       <p style={{ color: '#8b92a5' }}>Loading...</p>
+    </main>
+  );
+
+  // IDOR protection — show nothing, redirect to my-posts
+  if (unauthorized) return (
+    <main style={{ background: '#080c18', minHeight: '100vh' }} className="flex items-center justify-center px-4">
+      <div className="rounded-2xl p-8 text-center max-w-sm w-full"
+        style={{ background: '#0d1225', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <p className="text-4xl mb-4">🚫</p>
+        <h1 className="text-lg font-bold mb-2" style={{ color: '#f0f2f5' }}>Access denied</h1>
+        <p className="text-sm mb-6" style={{ color: '#8b92a5' }}>
+          You can only view claims on your own posts.
+        </p>
+        <a href="/my-posts"
+          className="inline-block py-2.5 px-6 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
+          style={{ background: '#185FA5' }}>
+          Go to my posts
+        </a>
+      </div>
     </main>
   );
 
