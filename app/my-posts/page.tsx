@@ -1,5 +1,6 @@
 import { createServerSupabase } from '@/lib/supabase-server'
 import Link from 'next/link'
+import DeletePostButton from './DeletePostButton'
 
 export default async function MyPosts() {
   const supabase = await createServerSupabase()
@@ -55,11 +56,20 @@ export default async function MyPosts() {
                       {post.status}
                     </span>
                   </div>
-                  <span className="text-xs shrink-0" style={{ color: '#4a5068' }}>
-                    {new Date(post.created_at).toLocaleString('en-IN', {
-                      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true
-                    })}
-                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs" style={{ color: '#4a5068' }}>
+                      {new Date(post.created_at).toLocaleString('en-IN', {
+                        day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true
+                      })}
+                    </span>
+                    <Link href={`/posts/${post.id}/edit`}
+                    className="text-xs px-2 py-1 rounded-lg transition-opacity hover:opacity-80"
+                    style={{ color: '#185FA5' }}
+                    title="Edit post">
+                    ✏️
+                    </Link>
+                    <DeletePostButton postId={post.id} postTitle={post.title} />
+                  </div>
                 </div>
 
                 <h2 className="text-base font-semibold mt-3" style={{ color: '#f0f2f5' }}>
@@ -80,7 +90,7 @@ export default async function MyPosts() {
                     )}
                   </div>
                   <Link href={`/my-posts/${post.id}`}
-                    className="text-xs font-medium" style={{ color: '#185FA5' }}>
+                    className="text-sm font-semibold transition-opacity hover:opacity-80" style={{ color: '#4ade80' }}>
                     View claims →
                   </Link>
                 </div>

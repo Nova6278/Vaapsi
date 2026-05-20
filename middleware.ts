@@ -25,6 +25,26 @@ const limiters = {
   }),
 }
 
+// Security headers applied to EVERY response
+const securityHeaders = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'X-XSS-Protection': '1; mode=block',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  'Content-Security-Policy':
+    process.env.NODE_ENV === 'development'
+      ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https://*.supabase.co data:; font-src 'self'; connect-src 'self' https://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
+      : "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https://*.supabase.co data:; font-src 'self'; connect-src 'self' https://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self';",
+}
+
+function applySecurityHeaders(response: NextResponse) {
+  Object.entries(securityHeaders).forEach(([key, value]) => {
+    response.headers.set(key, value)
+  })
+  return response
+}
+
 function rateLimitHtml(retryAfter: number) {
   const seconds = Math.ceil((retryAfter - Date.now()) / 1000)
   return `<!DOCTYPE html>
@@ -120,10 +140,30 @@ function rateLimitHtml(retryAfter: number) {
 export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname
 
+  // --- CSRF protection on API routes ---
+  if (path.startsWith('/api/')) {
+    const origin = req.headers.get('origin')
+    const allowedOrigins = [
+      'https://vaapsi.vercel.app',
+      ...(process.env.NODE_ENV === 'development' ? ['http://localhost:3000'] : []),
+    ]
+
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      if (!origin || !allowedOrigins.includes(origin)) {
+        const res = NextResponse.json(
+          { error: 'Forbidden — invalid origin' },
+          { status: 403 }
+        )
+        return applySecurityHeaders(res)
+      }
+    }
+  }
+
+  // --- Rate limiting (only on specific routes) ---
   let limiter: Ratelimit | null = null
   let isApiRoute = false
 
-  if (path === '/api/notify') {
+  if (path === '/api/notify' || path === '/api/match' || path === '/api/handoff') {
     limiter = limiters.api
     isApiRoute = true
   } else if (path === '/signup' || path === '/login') {
@@ -132,49 +172,61 @@ export async function middleware(req: NextRequest) {
     limiter = limiters.claim
   }
 
-  if (!limiter) return NextResponse.next()
+  if (limiter) {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1'
+    const identifier = `${ip}:${path}`
 
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1'
-  const identifier = `${ip}:${path}`
+    const { success, limit, remaining, reset } = await limiter.limit(identifier)
 
-  const { success, limit, remaining, reset } = await limiter.limit(identifier)
+    if (!success) {
+      if (isApiRoute) {
+        const res = NextResponse.json(
+          { error: 'Too many requests. Please slow down.' },
+          {
+            status: 429,
+            headers: {
+              'X-RateLimit-Limit': limit.toString(),
+              'X-RateLimit-Remaining': remaining.toString(),
+              'X-RateLimit-Reset': reset.toString(),
+            },
+          }
+        )
+        return applySecurityHeaders(res)
+      }
 
-  if (!success) {
-    // API routes get JSON
-    if (isApiRoute) {
-      return NextResponse.json(
-        { error: 'Too many requests. Please slow down.' },
-        {
-          status: 429,
-          headers: {
-            'X-RateLimit-Limit': limit.toString(),
-            'X-RateLimit-Remaining': remaining.toString(),
-            'X-RateLimit-Reset': reset.toString(),
-          },
-        }
-      )
+      const res = new NextResponse(rateLimitHtml(reset), {
+        status: 429,
+        headers: {
+          'Content-Type': 'text/html',
+          'X-RateLimit-Limit': limit.toString(),
+          'X-RateLimit-Remaining': remaining.toString(),
+          'X-RateLimit-Reset': reset.toString(),
+        },
+      })
+      return applySecurityHeaders(res)
     }
 
-    // Page routes get styled HTML with countdown
-    return new NextResponse(rateLimitHtml(reset), {
-      status: 429,
-      headers: {
-        'Content-Type': 'text/html',
-        'X-RateLimit-Limit': limit.toString(),
-        'X-RateLimit-Remaining': remaining.toString(),
-        'X-RateLimit-Reset': reset.toString(),
-      },
-    })
+    const response = NextResponse.next()
+    response.headers.set('X-RateLimit-Limit', limit.toString())
+    response.headers.set('X-RateLimit-Remaining', remaining.toString())
+    response.headers.set('X-RateLimit-Reset', reset.toString())
+    return applySecurityHeaders(response)
   }
 
+  // --- No rate limiting needed, just add security headers ---
   const response = NextResponse.next()
-  response.headers.set('X-RateLimit-Limit', limit.toString())
-  response.headers.set('X-RateLimit-Remaining', remaining.toString())
-  response.headers.set('X-RateLimit-Reset', reset.toString())
-
-  return response
+  return applySecurityHeaders(response)
 }
 
 export const config = {
-  matcher: ['/api/notify', '/signup', '/login', '/posts/:id/claim'],
+  matcher: [
+    /*
+     * Match all request paths EXCEPT:
+     * - _next/static (static files)
+     * - _next/image (image optimization)
+     * - favicon.ico
+     * - public folder assets
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 }

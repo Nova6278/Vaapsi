@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
-import { createClient } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { createBrowserClient } from '@supabase/ssr'
+import { useRouter, useParams } from 'next/navigation'
 import { sanitize, LIMITS, containsProfanity } from '@/lib/sanitize'
 import { isValidImage, MAX_POST_IMAGE } from '@/lib/validate-image'
+import Link from 'next/link'
 import Image from 'next/image'
 
 const CATEGORIES = [
@@ -21,12 +22,18 @@ const CATEGORIES = [
   'Other',
 ]
 
-export default function NewPost() {
+export default function EditPost() {
   const router = useRouter()
+  const params = useParams()
+  const postId = params.id as string
+
   const [loading, setLoading] = useState(false)
+  const [fetching, setFetching] = useState(true)
   const [error, setError] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [existingImage, setExistingImage] = useState<string | null>(null)
+  const [unauthorized, setUnauthorized] = useState(false)
 
   const [form, setForm] = useState({
     type: 'lost',
@@ -36,6 +43,43 @@ export default function NewPost() {
     description: '',
     verification_question: '',
   })
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  useEffect(() => {
+    const fetchPost = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/login'); return }
+
+      const { data: post } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('id', postId)
+        .single()
+
+      if (!post || post.user_id !== user.id) {
+        setUnauthorized(true)
+        setFetching(false)
+        return
+      }
+
+      setForm({
+        type: post.type,
+        title: post.title,
+        category: post.category ?? '',
+        location: post.location ?? '',
+        description: post.description ?? '',
+        verification_question: post.verification_question ?? '',
+      })
+      setExistingImage(post.photo_url)
+      setFetching(false)
+    }
+    fetchPost()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postId])
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -86,7 +130,7 @@ export default function NewPost() {
       location: sanitize(form.location, LIMITS.location),
       description: sanitize(form.description, LIMITS.description),
       verification_question: form.type === 'found' ? sanitize(form.verification_question, LIMITS.verification_question) : '',
-}
+    }
 
     if (!cleaned.title || !cleaned.category || !cleaned.location) {
       setError('Title, category, and location are required.')
@@ -101,12 +145,10 @@ export default function NewPost() {
       return
     }
 
-    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setError('You must be logged in.'); setLoading(false); return }
 
-    if (!user) { setError('You must be logged in to post.'); setLoading(false); return }
-
-    let photoUrl: string | null = null
+    let photoUrl: string | null = existingImage
     if (imageFile) {
       const fileExt = imageFile.name.split('.').pop()?.toLowerCase()
       const fileName = `${user.id}-${Date.now()}.${fileExt}`
@@ -116,36 +158,14 @@ export default function NewPost() {
       photoUrl = urlData.publicUrl
     }
 
-    const { error: insertError } = await supabase.from('posts').insert({
-      ...cleaned, user_id: user.id, status: 'active', photo_url: photoUrl,
-    })
+    const { error: updateError } = await supabase
+      .from('posts')
+      .update({ ...cleaned, photo_url: photoUrl })
+      .eq('id', postId)
+      .eq('user_id', user.id)
 
-    if (insertError) { setError(insertError.message); setLoading(false); return }
-
-    if (cleaned.type === 'found' && cleaned.category) {
-      const { data: newPost } = await supabase
-        .from('posts')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('title', cleaned.title)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
-
-      if (newPost) {
-        fetch('/api/match', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            postId: newPost.id,
-            category: cleaned.category,
-            title: cleaned.title,
-          }),
-        }).catch(() => {})
-      }
-    }
-
-    router.push('/dashboard')
+    if (updateError) { setError(updateError.message); setLoading(false); return }
+    router.push('/my-posts')
   }
 
   const inputStyle = {
@@ -170,13 +190,35 @@ export default function NewPost() {
     </span>
   )
 
+  if (fetching) return (
+    <main style={{ background: '#080c18', minHeight: '100vh' }} className="flex items-center justify-center">
+      <p style={{ color: '#8b92a5' }}>Loading...</p>
+    </main>
+  )
+
+  if (unauthorized) return (
+    <main style={{ background: '#080c18', minHeight: '100vh' }} className="flex items-center justify-center px-4">
+      <div className="rounded-2xl p-8 text-center max-w-sm w-full"
+        style={{ background: '#0d1225', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <p className="text-4xl mb-4">🚫</p>
+        <h1 className="text-lg font-bold mb-2" style={{ color: '#f0f2f5' }}>Access denied</h1>
+        <p className="text-sm mb-6" style={{ color: '#8b92a5' }}>You can only edit your own posts.</p>
+        <Link href="/my-posts"
+          className="inline-block py-2.5 px-6 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
+          style={{ background: '#185FA5' }}>
+          Go to my posts
+        </Link>
+      </div>
+    </main>
+  )
+
   return (
     <main style={{ background: '#080c18', minHeight: '100vh' }} className="px-4 py-8">
       <div className="max-w-xl mx-auto">
 
         <div className="mb-6">
-          <h1 className="text-xl font-bold" style={{ color: '#f0f2f5' }}>Report Item</h1>
-          <p className="text-sm mt-1" style={{ color: '#8b92a5' }}>Lost something? Found something? Post it here.</p>
+          <h1 className="text-xl font-bold" style={{ color: '#f0f2f5' }}>Edit Post</h1>
+          <p className="text-sm mt-1" style={{ color: '#8b92a5' }}>Update your lost or found item details.</p>
         </div>
 
         <div className="rounded-2xl p-6"
@@ -260,27 +302,31 @@ export default function NewPost() {
 
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#4a5068' }}>
-                Photo (optional) — JPG, PNG, WebP, GIF · Max 2MB
+                Photo — JPG, PNG, WebP, GIF · Max 2MB
               </p>
-              <label className="flex items-center justify-center w-full py-4 rounded-xl cursor-pointer transition-colors"
-                style={{ background: '#111830', border: '2px dashed rgba(255,255,255,0.08)', color: '#8b92a5' }}>
-                <span className="text-sm">📷 Click to upload image</span>
-                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleImageChange} className="hidden" />
-              </label>
-              {imagePreview && (
-                <div className="mt-3 relative w-full h-48 rounded-xl overflow-hidden">
-                  <Image src={imagePreview} alt="Preview"
+              {(existingImage || imagePreview) && (
+                <div className="mb-3 relative w-full h-48 rounded-xl overflow-hidden">
+                  <Image src={imagePreview ?? existingImage!} alt="Preview"
                     fill className="object-cover" unoptimized />
                 </div>
               )}
+              <label className="flex items-center justify-center w-full py-4 rounded-xl cursor-pointer transition-colors"
+                style={{ background: '#111830', border: '2px dashed rgba(255,255,255,0.08)', color: '#8b92a5' }}>
+                <span className="text-sm">{existingImage ? '📷 Replace image' : '📷 Click to upload image'}</span>
+                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleImageChange} className="hidden" />
+              </label>
             </div>
 
             <button type="submit" disabled={loading}
               className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
               style={{ background: '#185FA5' }}>
-              {loading ? 'Posting...' : 'Submit Post'}
+              {loading ? 'Saving...' : 'Save Changes'}
             </button>
           </form>
+
+          <Link href="/my-posts" className="block mt-4 text-center text-xs" style={{ color: '#4a5068' }}>
+            ← Back to my posts
+          </Link>
         </div>
       </div>
     </main>

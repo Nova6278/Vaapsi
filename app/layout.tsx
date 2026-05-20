@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Navbar from "./components/navbar";
+import NavbarWrapper from "./components/NavbarWrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,6 +16,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Vaapsi — Lost & Found",
   description: "KIIT's official lost and found platform",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/vaapsi-logo-180.png",
+  },
 };
 
 export default function RootLayout({
@@ -29,7 +33,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
      <body className="min-h-full flex flex-col" style={{ background: '#080c18' }}>
-        <Navbar />
+        <NavbarWrapper />
         {children}
       </body>
     </html>

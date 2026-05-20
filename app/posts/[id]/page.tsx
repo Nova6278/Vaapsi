@@ -20,9 +20,21 @@ export default async function PostDetail({ params }: { params: Promise<{ id: str
     </main>
   )
 
+  const isResolved = post.status === 'resolved'
+
   return (
     <main style={{ background: '#080c18', minHeight: '100vh' }} className="px-4 py-8">
       <div className="max-w-xl mx-auto">
+
+        {/* Resolved banner */}
+        {isResolved && (
+          <div className="rounded-xl p-4 mb-4 text-center"
+            style={{ background: '#14301f', border: '1px solid #14532d' }}>
+            <p className="text-sm font-semibold" style={{ color: '#4ade80' }}>
+              ✓ This item has been returned to its owner
+            </p>
+          </div>
+        )}
 
         {/* Card */}
         <div className="rounded-2xl overflow-hidden" style={{ background: '#0d1225', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -73,8 +85,8 @@ export default async function PostDetail({ params }: { params: Promise<{ id: str
               </p>
             )}
 
-            {/* Verification question */}
-            {post.verification_question && (
+            {/* Verification question — hide if resolved or lost post */}
+            {post.verification_question && !isResolved && post.type !== 'lost' && (
               <div className="mt-6 rounded-xl p-4" style={{ background: '#111830', border: '1px solid rgba(255,255,255,0.06)' }}>
                 <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#4a5068' }}>
                   To claim, answer this:
@@ -85,13 +97,15 @@ export default async function PostDetail({ params }: { params: Promise<{ id: str
               </div>
             )}
 
-            {/* CTA */}
-            <Link href={`/posts/${id}/claim`}>
-              <button className="mt-6 w-full py-3 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                style={{ background: '#185FA5' }}>
-                Claim This Item
-              </button>
-            </Link>
+            {/* CTA — hide if resolved */}
+            {!isResolved && (
+              <Link href={`/posts/${id}/claim`}>
+                <button className="mt-6 w-full py-3 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                  style={{ background: '#185FA5' }}>
+                  {post.type === 'lost' ? 'I Found This Item' : 'Claim This Item'}
+                </button>
+              </Link>
+            )}
 
             {/* Back */}
             <Link href="/dashboard" className="block mt-4 text-center text-xs"

@@ -10,7 +10,7 @@ export default async function NotificationsPage() {
 
   const { data: notifications, error } = await supabase
     .from('notifications')
-    .select('*')
+    .select('*, claims(post_id)')
     .order('created_at', { ascending: false })
 
   if (error) return (
@@ -24,8 +24,46 @@ export default async function NotificationsPage() {
     await supabase.from('notifications').update({ is_read: true }).in('id', unreadIds)
   }
 
+  // Collect all post IDs referenced in notifications
+  const allPostIds = new Set<string>()
+  for (const n of notifications ?? []) {
+    if (n.post_id) allPostIds.add(n.post_id)
+    if (n.claims?.post_id) allPostIds.add(n.claims.post_id)
+  }
+
+  // Check which posts still exist
+  const existingPostIds = new Set<string>()
+  if (allPostIds.size > 0) {
+    const { data: existingPosts } = await supabase
+      .from('posts')
+      .select('id')
+      .in('id', Array.from(allPostIds))
+    if (existingPosts) {
+      for (const p of existingPosts) existingPostIds.add(p.id)
+    }
+  }
+
+  // For confirmed notifications, find handoff IDs by post_id
+  const confirmedPostIds = (notifications ?? [])
+    .filter(n => n.message?.includes('confirmed') && n.claims?.post_id)
+    .map(n => n.claims.post_id)
+
+  const handoffMap: Record<string, string> = {}
+  if (confirmedPostIds.length > 0) {
+    const { data: handoffs } = await supabase
+      .from('handoffs')
+      .select('id, post_id')
+      .in('post_id', confirmedPostIds)
+    if (handoffs) {
+      for (const h of handoffs) {
+        handoffMap[h.post_id] = h.id
+      }
+    }
+  }
+
   const isConfirmed = (msg: string) => msg.includes('confirmed')
   const isRejected = (msg: string) => msg.includes('rejected')
+  const isMatch = (msg: string) => msg.includes('might be your')
 
   return (
     <main style={{ background: '#080c18', minHeight: '100vh' }} className="px-4 py-8">
@@ -49,9 +87,37 @@ export default async function NotificationsPage() {
           {notifications?.map(n => {
             const confirmed = isConfirmed(n.message)
             const rejected = isRejected(n.message)
+            const match = isMatch(n.message)
+            const claimPostId = n.claims?.post_id
+            const handoffId = claimPostId ? handoffMap[claimPostId] : null
 
-            return (
-              <div key={n.id} className="rounded-2xl p-5"
+            // Check if referenced post still exists
+            const postExists = n.post_id ? existingPostIds.has(n.post_id) : false
+            const claimPostExists = claimPostId ? existingPostIds.has(claimPostId) : false
+
+            // Determine link target
+            let href: string | null = null
+            let linkLabel: string = ''
+
+            if (match && n.post_id && postExists) {
+              href = `/posts/${n.post_id}`
+              linkLabel = 'View found item →'
+            } else if (confirmed && handoffId) {
+              href = `/handoff/${handoffId}`
+              linkLabel = 'Go to handoff →'
+            } else if (n.message?.includes('claimed your post') && claimPostId && claimPostExists) {
+              href = `/my-posts/${claimPostId}`
+              linkLabel = 'Review claims →'
+            } else if (claimPostId && claimPostExists) {
+              href = `/posts/${claimPostId}`
+              linkLabel = 'View post →'
+            }
+
+            // Show "item no longer available" for dead links
+            const postDeleted = (n.post_id && !postExists) || (claimPostId && !claimPostExists)
+
+            const card = (
+              <div className="rounded-2xl p-5"
                 style={{
                   background: '#0d1225',
                   border: `1px solid ${!n.is_read ? '#185FA5' : 'rgba(255,255,255,0.06)'}`,
@@ -59,13 +125,11 @@ export default async function NotificationsPage() {
 
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    {/* dot for unread */}
                     {!n.is_read && (
                       <span className="w-2 h-2 rounded-full shrink-0 mt-0.5" style={{ background: '#185FA5' }} />
                     )}
-                    {/* type icon */}
                     <span className="text-base">
-                      {confirmed ? '🎉' : rejected ? '❌' : '🔔'}
+                      {match ? '🔍' : confirmed ? '🎉' : rejected ? '❌' : '🔔'}
                     </span>
                   </div>
                   <span className="text-xs shrink-0" style={{ color: '#4a5068' }}>
@@ -79,15 +143,24 @@ export default async function NotificationsPage() {
                   {n.message}
                 </p>
 
-                {n.claim_id && (
-                  <div className="mt-4 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                    <Link href="/my-posts"
-                      className="text-xs font-medium" style={{ color: '#185FA5' }}>
-                      View my posts →
-                    </Link>
-                  </div>
+                {postDeleted && !href && (
+                  <p className="text-xs mt-3" style={{ color: '#4a5068' }}>
+                    This item is no longer available.
+                  </p>
+                )}
+
+                {href && (
+                  <p className="text-xs mt-3 font-medium" style={{ color: '#185FA5' }}>
+                    {linkLabel}
+                  </p>
                 )}
               </div>
+            )
+
+            return href ? (
+              <Link key={n.id} href={href}>{card}</Link>
+            ) : (
+              <div key={n.id}>{card}</div>
             )
           })}
         </div>
