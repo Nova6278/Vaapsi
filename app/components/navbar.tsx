@@ -9,7 +9,13 @@ export default function Navbar() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [handoffCount, setHandoffCount] = useState(0)
   const [loggedIn, setLoggedIn] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const pathname = usePathname()
+
+  // Close menu on route change
+  useEffect(() => {
+    setMenuOpen(false)
+  }, [pathname])
 
   useEffect(() => {
     const supabase = createClient()
@@ -18,7 +24,6 @@ export default function Navbar() {
       if (!user) return
       setLoggedIn(true)
 
-      // Unread notifications
       const { count, error } = await supabase
         .from('notifications')
         .select('*', { count: 'exact', head: true })
@@ -26,7 +31,6 @@ export default function Navbar() {
         .eq('is_read', false)
       if (!error && count !== null) setUnreadCount(count)
 
-      // Unread handoff messages
       const { data: myHandoffs } = await supabase
         .from('handoffs')
         .select('id')
@@ -46,6 +50,13 @@ export default function Navbar() {
     }
     check()
   }, [pathname])
+
+  const navLinks = [
+    { href: '/posts/new', label: '+ New Post' },
+    { href: '/my-posts', label: 'My Posts' },
+    { href: '/my-claims', label: 'My Claims' },
+    { href: '/profile', label: 'Profile' },
+  ]
 
   return (
     <>
@@ -73,8 +84,10 @@ export default function Navbar() {
       `}</style>
 
       <nav style={{ background: '#080c18', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
-        className="px-6 py-3 flex items-center justify-between sticky top-0 z-50">
-        <Link href={loggedIn ? '/dashboard' : '/'}>
+        className="px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-50">
+
+        {/* Logo */}
+        <Link href={loggedIn ? '/dashboard' : '/'} className="shrink-0">
           <span style={{
             fontSize: '22px',
             fontWeight: 800,
@@ -89,31 +102,19 @@ export default function Navbar() {
         </Link>
 
         {loggedIn && (
-          <div className="flex items-center gap-5">
-            <Link href="/posts/new" className="text-sm transition-colors"
-              style={{ color: '#8b92a5' }}
-              onMouseEnter={e => (e.currentTarget.style.color = '#f0f2f5')}
-              onMouseLeave={e => (e.currentTarget.style.color = '#8b92a5')}>
-              + New Post
-            </Link>
-            <Link href="/my-posts" className="text-sm transition-colors"
-              style={{ color: '#8b92a5' }}
-              onMouseEnter={e => (e.currentTarget.style.color = '#f0f2f5')}
-              onMouseLeave={e => (e.currentTarget.style.color = '#8b92a5')}>
-              My Posts
-            </Link>
-            <Link href="/my-claims" className="text-sm transition-colors"
-              style={{ color: '#8b92a5' }}
-              onMouseEnter={e => (e.currentTarget.style.color = '#f0f2f5')}
-              onMouseLeave={e => (e.currentTarget.style.color = '#8b92a5')}>
-              My Claims
-            </Link>
-            <Link href="/profile" className="text-sm transition-colors"
-              style={{ color: '#8b92a5' }}
-              onMouseEnter={e => (e.currentTarget.style.color = '#f0f2f5')}
-              onMouseLeave={e => (e.currentTarget.style.color = '#8b92a5')}>
-              Profile
-            </Link>
+          <div className="flex items-center gap-3 sm:gap-5">
+
+            {/* Desktop text links — hidden on mobile */}
+            <div className="hidden sm:flex items-center gap-5">
+              {navLinks.map((link) => (
+                <Link key={link.href} href={link.href} className="text-sm transition-colors"
+                  style={{ color: pathname === link.href ? '#f0f2f5' : '#8b92a5' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = '#f0f2f5')}
+                  onMouseLeave={e => (e.currentTarget.style.color = pathname === link.href ? '#f0f2f5' : '#8b92a5')}>
+                  {link.label}
+                </Link>
+              ))}
+            </div>
 
             {/* Handoff icon */}
             <Link href="/handoffs" className="handoff-link relative flex items-center">
@@ -146,9 +147,59 @@ export default function Navbar() {
                 </span>
               )}
             </Link>
+
+            {/* Hamburger — mobile only */}
+            <button
+              className="sm:hidden flex flex-col justify-center items-center w-6 h-6 gap-[5px]"
+              onClick={() => setMenuOpen(!menuOpen)}
+              aria-label="Toggle menu"
+            >
+              <span className="block w-5 h-[2px] rounded-full transition-all duration-200"
+                style={{
+                  background: '#8b92a5',
+                  transform: menuOpen ? 'rotate(45deg) translate(2.5px, 2.5px)' : 'none',
+                }} />
+              <span className="block w-5 h-[2px] rounded-full transition-all duration-200"
+                style={{
+                  background: '#8b92a5',
+                  opacity: menuOpen ? 0 : 1,
+                }} />
+              <span className="block w-5 h-[2px] rounded-full transition-all duration-200"
+                style={{
+                  background: '#8b92a5',
+                  transform: menuOpen ? 'rotate(-45deg) translate(2.5px, -2.5px)' : 'none',
+                }} />
+            </button>
           </div>
         )}
       </nav>
+
+      {/* Mobile dropdown menu */}
+      {loggedIn && menuOpen && (
+        <div className="sm:hidden fixed inset-x-0 top-[53px] z-40 px-4 pt-2 pb-4"
+          style={{ background: '#080c18', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="flex flex-col gap-1">
+            {navLinks.map((link) => (
+              <Link key={link.href} href={link.href}
+                className="text-sm py-2.5 px-3 rounded-lg transition-colors"
+                style={{
+                  color: pathname === link.href ? '#f0f2f5' : '#8b92a5',
+                  background: pathname === link.href ? 'rgba(24,95,165,0.15)' : 'transparent',
+                }}>
+                {link.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Backdrop to close menu */}
+      {loggedIn && menuOpen && (
+        <div
+          className="sm:hidden fixed inset-0 top-[53px] z-30 bg-black/50"
+          onClick={() => setMenuOpen(false)}
+        />
+      )}
     </>
   )
 }

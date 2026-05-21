@@ -15,7 +15,7 @@ const limiters = {
   }),
   auth: new Ratelimit({
     redis,
-    limiter: Ratelimit.slidingWindow(3, '1 m'),
+    limiter: Ratelimit.slidingWindow(10, '1 m'),
     prefix: 'rl:auth',
   }),
   claim: new Ratelimit({
