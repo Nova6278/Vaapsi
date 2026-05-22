@@ -128,7 +128,7 @@ export default function SignupPage() {
             fontSize: '32px',
             fontWeight: 800,
             letterSpacing: '-0.5px',
-            background: 'linear-gradient(135deg, #FF9933 0%, #FF9933 25%, #ffffff 50%, #138808 75%, #138808 100%)',
+            background: 'linear-gradient(135deg, #FDE68A 0%, #D4AF37 50%, #A68A3E 100%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text',

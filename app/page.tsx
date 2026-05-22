@@ -66,7 +66,7 @@ export default function Home() {
             fontWeight: 900,
             letterSpacing: '-2px',
             lineHeight: 1,
-            background: 'linear-gradient(135deg, #FF9933 0%, #FF9933 25%, #ffffff 45%, #ffffff 55%, #138808 75%, #138808 100%)',
+            background: 'linear-gradient(135deg, #FDE68A 0%, #D4AF37 50%, #A68A3E 100%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text',
@@ -171,7 +171,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold" style={{
-                background: 'linear-gradient(135deg, #FF9933, #ffffff, #138808)',
+                background: 'linear-gradient(135deg, #FDE68A, #D4AF37, #A68A3E)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
