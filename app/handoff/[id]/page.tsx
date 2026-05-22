@@ -344,6 +344,7 @@ export default function HandoffChat() {
           <div className="max-w-xl mx-auto flex gap-2">
             <input
               type="text"
+              aria-label="Message"
               value={newMsg}
               onChange={(e) => setNewMsg(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}

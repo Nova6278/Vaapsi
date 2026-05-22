@@ -75,17 +75,17 @@ export default function SignupPage() {
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-[-10%] left-[-15%] w-[450px] h-[450px] rounded-full opacity-15"
           style={{
-            background: 'radial-gradient(circle, #FF9933 0%, transparent 70%)',
+            background: 'radial-gradient(circle, #D4AF37 0%, transparent 70%)',
             animation: 'signupFloat1 13s ease-in-out infinite',
           }} />
         <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] rounded-full opacity-12"
           style={{
-            background: 'radial-gradient(circle, #138808 0%, transparent 70%)',
+            background: 'radial-gradient(circle, #A68A3E 0%, transparent 70%)',
             animation: 'signupFloat2 10s ease-in-out infinite',
           }} />
         <div className="absolute top-[60%] left-[40%] w-[350px] h-[350px] rounded-full opacity-8"
           style={{
-            background: 'radial-gradient(circle, #FF9933 0%, transparent 70%)',
+            background: 'radial-gradient(circle, #FDE68A 0%, transparent 70%)',
             animation: 'signupFloat3 15s ease-in-out infinite',
           }} />
 
@@ -109,7 +109,7 @@ export default function SignupPage() {
             style={{
               width: `${2 + (i % 3)}px`,
               height: `${2 + (i % 3)}px`,
-              background: i % 3 === 0 ? '#FF9933' : i % 3 === 1 ? '#138808' : 'rgba(255,255,255,0.4)',
+              background: i % 3 === 0 ? '#FDE68A' : i % 3 === 1 ? '#D4AF37' : '#A68A3E',
               left: `${(i * 7.14 + 3) % 100}%`,
               top: `${(i * 9.3 + 8) % 100}%`,
               opacity: 0.2 + (i % 4) * 0.1,

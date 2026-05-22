@@ -33,6 +33,7 @@ export default function ClaimPost() {
       supabase.from('posts').select('title, location, type, verification_question, user_id').eq('id', postId).single(),
       supabase.auth.getUser(),
     ]).then(async ([{ data: postData }, { data: { user } }]) => {
+      if (!user) { window.location.href = '/login'; return }
       setPost(postData)
       setCurrentUserId(user?.id ?? null)
       if (postData && user && postData.user_id === user.id) {
@@ -216,6 +217,7 @@ export default function ClaimPost() {
                 <form onSubmit={handleClaim} className="flex flex-col gap-4">
                   <div>
                     <textarea
+                      aria-label={isLostPost ? "Description of found item" : "Verification answer"}
                       placeholder={isLostPost ? "Describe where and when you found it..." : "Type your answer here..."}
                       value={answer}
                       onChange={(e) => {
@@ -278,6 +280,7 @@ export default function ClaimPost() {
                           <input
                             type="file"
                             accept="image/*"
+                            aria-label="Upload photo proof"
                             onChange={handleProofSelect}
                             className="hidden"
                           />

@@ -9,12 +9,12 @@ export default function Home() {
         {/* Gradient orbs */}
         <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full opacity-20"
           style={{
-            background: 'radial-gradient(circle, #FF9933 0%, transparent 70%)',
+            background: 'radial-gradient(circle, #D4AF37 0%, transparent 70%)',
             animation: 'float1 12s ease-in-out infinite',
           }} />
         <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full opacity-15"
           style={{
-            background: 'radial-gradient(circle, #138808 0%, transparent 70%)',
+            background: 'radial-gradient(circle, #A68A3E 0%, transparent 70%)',
             animation: 'float2 14s ease-in-out infinite',
           }} />
         <div className="absolute top-[40%] left-[50%] w-[400px] h-[400px] rounded-full opacity-10"
@@ -43,7 +43,7 @@ export default function Home() {
             style={{
               width: `${2 + (i % 4)}px`,
               height: `${2 + (i % 4)}px`,
-              background: i % 3 === 0 ? '#FF9933' : i % 3 === 1 ? '#ffffff' : '#138808',
+              background: i % 3 === 0 ? '#FDE68A' : i % 3 === 1 ? '#D4AF37' : '#A68A3E',
               left: `${(i * 5.26) % 100}%`,
               top: `${(i * 7.37 + 10) % 100}%`,
               opacity: 0.3 + (i % 5) * 0.1,

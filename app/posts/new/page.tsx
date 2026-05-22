@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { sanitize, LIMITS, containsProfanity } from '@/lib/sanitize'
@@ -28,6 +28,12 @@ export default function NewPost() {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
 
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) window.location.href = '/login'
+    })
+  }, [])  
   const [form, setForm] = useState({
     type: 'lost',
     title: '',

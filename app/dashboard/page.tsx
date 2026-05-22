@@ -54,7 +54,12 @@ export default function Dashboard() {
   }
 
   useEffect(() => {
-    fetchPosts()
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { window.location.href = '/login'; return }
+      fetchPosts()
+    }
+    checkAuth()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
