@@ -130,6 +130,7 @@ export default function LoginPage() {
             <input
               type="email"
               placeholder="you@kiit.ac.in"
+              aria-label="Email address"
               value={email}
               onChange={e => setEmail(e.target.value)}
               style={inputStyle}
@@ -139,6 +140,7 @@ export default function LoginPage() {
             <input
               type="password"
               placeholder="Password"
+              aria-label="Password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               style={inputStyle}

@@ -86,7 +86,7 @@ export default function NewPost() {
       location: sanitize(form.location, LIMITS.location),
       description: sanitize(form.description, LIMITS.description),
       verification_question: form.type === 'found' ? sanitize(form.verification_question, LIMITS.verification_question) : '',
-}
+    }
 
     if (!cleaned.title || !cleaned.category || !cleaned.location) {
       setError('Title, category, and location are required.')
@@ -209,13 +209,13 @@ export default function NewPost() {
 
             <div>
               <input name="title" placeholder="Item name (e.g. Blue water bottle)"
-                value={form.title} onChange={handleChange} required maxLength={LIMITS.title}
+                aria-label="Item name" value={form.title} onChange={handleChange} required maxLength={LIMITS.title}
                 style={inputStyle} onFocus={focusHandler} onBlur={blurHandler} />
               {charCount('title')}
             </div>
 
             <div>
-              <select name="category" value={form.category} onChange={handleChange} required
+              <select name="category" value={form.category} onChange={handleChange} required aria-label="Category"
                 style={{
                   ...inputStyle,
                   appearance: 'none',
@@ -235,14 +235,14 @@ export default function NewPost() {
 
             <div>
               <input name="location" placeholder="Location (e.g. Library, Block 7)"
-                value={form.location} onChange={handleChange} required maxLength={LIMITS.location}
+                aria-label="Location" value={form.location} onChange={handleChange} required maxLength={LIMITS.location}
                 style={inputStyle} onFocus={focusHandler} onBlur={blurHandler} />
               {charCount('location')}
             </div>
 
             <div>
               <textarea name="description" placeholder="Description (optional)"
-                value={form.description} onChange={handleChange} rows={3} maxLength={LIMITS.description}
+                aria-label="Description" value={form.description} onChange={handleChange} rows={3} maxLength={LIMITS.description}
                 style={{ ...inputStyle, resize: 'none' }}
                 onFocus={focusHandler} onBlur={blurHandler} />
               {charCount('description')}
@@ -252,7 +252,7 @@ export default function NewPost() {
               <div>
                 <input name="verification_question"
                   placeholder="Verification question (e.g. What colour is the cap?)"
-                  value={form.verification_question} onChange={handleChange} maxLength={LIMITS.verification_question}
+                  aria-label="Verification question" value={form.verification_question} onChange={handleChange} maxLength={LIMITS.verification_question}
                   style={inputStyle} onFocus={focusHandler} onBlur={blurHandler} />
                 {charCount('verification_question')}
               </div>
@@ -265,11 +265,11 @@ export default function NewPost() {
               <label className="flex items-center justify-center w-full py-4 rounded-xl cursor-pointer transition-colors"
                 style={{ background: '#111830', border: '2px dashed rgba(255,255,255,0.08)', color: '#8b92a5' }}>
                 <span className="text-sm">📷 Click to upload image</span>
-                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleImageChange} className="hidden" />
+                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" aria-label="Upload photo" onChange={handleImageChange} className="hidden" />
               </label>
               {imagePreview && (
                 <div className="mt-3 relative w-full h-48 rounded-xl overflow-hidden">
-                  <Image src={imagePreview} alt="Preview"
+                  <Image src={imagePreview} alt="Preview of uploaded image"
                     fill className="object-cover" unoptimized />
                 </div>
               )}

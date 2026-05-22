@@ -76,8 +76,25 @@ export default function HandoffsList() {
   }, []);
 
   if (loading) return (
-    <main style={{ background: '#050a15', minHeight: '100vh' }} className="flex items-center justify-center">
-      <p style={{ color: '#8b92a5' }}>Loading...</p>
+    <main style={{ background: '#050a15', minHeight: '100vh' }} className="px-4 py-8">
+      <div className="max-w-xl mx-auto">
+        <div className="mb-6">
+          <div className="h-6 w-24 rounded animate-pulse" style={{ background: '#111830' }} />
+          <div className="h-3 w-44 rounded mt-2 animate-pulse" style={{ background: '#111830' }} />
+        </div>
+        <div className="flex flex-col gap-3">
+          {[1, 2].map(i => (
+            <div key={i} className="rounded-2xl p-5 animate-pulse"
+              style={{ background: 'rgba(13,18,37,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="h-5 w-16 rounded-full" style={{ background: '#111830' }} />
+                <div className="h-3 w-28 rounded" style={{ background: '#111830' }} />
+              </div>
+              <div className="h-4 w-32 rounded" style={{ background: '#111830' }} />
+            </div>
+          ))}
+        </div>
+      </div>
     </main>
   );
 

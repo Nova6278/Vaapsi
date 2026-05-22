@@ -18,7 +18,7 @@ export default async function MyPosts() {
 
         <div className="mb-6">
           <h1 className="text-xl font-bold" style={{ color: '#f0f2f5' }}>My Posts</h1>
-          <p className="text-sm mt-1" style={{ color: '#8b92a5' }}>Items you've reported lost or found</p>
+          <p className="text-sm mt-1" style={{ color: '#8b92a5' }}>Items you have reported lost or found</p>
         </div>
 
         {posts?.length === 0 && (

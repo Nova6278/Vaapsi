@@ -47,8 +47,30 @@ export default function MyClaims() {
   }, [])
 
   if (loading) return (
-    <main style={{ background: '#080c18', minHeight: '100vh' }} className="flex items-center justify-center">
-      <p style={{ color: '#8b92a5' }}>Loading...</p>
+    <main style={{ background: '#080c18', minHeight: '100vh' }} className="px-4 py-8">
+      <div className="max-w-xl mx-auto">
+        <div className="mb-6">
+          <div className="h-6 w-28 rounded animate-pulse" style={{ background: '#111830' }} />
+          <div className="h-3 w-40 rounded mt-2 animate-pulse" style={{ background: '#111830' }} />
+        </div>
+        <div className="flex flex-col gap-3">
+          {[1, 2].map(i => (
+            <div key={i} className="rounded-2xl p-5 animate-pulse"
+              style={{ background: '#0d1225', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="h-5 w-14 rounded-full" style={{ background: '#111830' }} />
+                <div className="h-5 w-20 rounded-full" style={{ background: '#111830' }} />
+              </div>
+              <div className="h-5 w-36 rounded mb-1" style={{ background: '#111830' }} />
+              <div className="h-3 w-28 rounded mt-2" style={{ background: '#111830' }} />
+              <div className="pt-3 mt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="h-3 w-16 rounded mb-2" style={{ background: '#111830' }} />
+                <div className="h-3 w-full rounded" style={{ background: '#111830' }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </main>
   )
 

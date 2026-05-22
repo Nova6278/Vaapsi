@@ -12,11 +12,6 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
   const pathname = usePathname()
 
-  // Close menu on route change
-  useEffect(() => {
-    setMenuOpen(false)
-  }, [pathname])
-
   useEffect(() => {
     const supabase = createClient()
     async function check() {
@@ -117,7 +112,7 @@ export default function Navbar() {
             </div>
 
             {/* Handoff icon */}
-            <Link href="/handoffs" className="handoff-link relative flex items-center">
+            <Link href="/handoffs" className="handoff-link relative flex items-center" aria-label="Handoffs">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                 strokeWidth={1.5} stroke="#185FA5" className="handoff-icon w-6 h-6 transition-transform"
                 style={{ transformOrigin: 'center' }}>
@@ -133,7 +128,7 @@ export default function Navbar() {
             </Link>
 
             {/* Bell icon */}
-            <Link href="/notifications" className="bell-link relative flex items-center">
+            <Link href="/notifications" className="bell-link relative flex items-center" aria-label="Notifications">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                 strokeWidth={1.5} stroke="#185FA5" className="bell-icon w-6 h-6 transition-colors"
                 style={{ transformOrigin: 'top center' }}>
@@ -181,6 +176,7 @@ export default function Navbar() {
           <div className="flex flex-col gap-1">
             {navLinks.map((link) => (
               <Link key={link.href} href={link.href}
+                onClick={() => setMenuOpen(false)}
                 className="text-sm py-2.5 px-3 rounded-lg transition-colors"
                 style={{
                   color: pathname === link.href ? '#f0f2f5' : '#8b92a5',

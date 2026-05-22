@@ -157,6 +157,7 @@ export default function SignupPage() {
             <input
               type="text"
               placeholder="Your name"
+              aria-label="Full name"
               value={name}
               onChange={e => setName(e.target.value)}
               style={inputStyle}
@@ -166,6 +167,7 @@ export default function SignupPage() {
             <input
               type="email"
               placeholder="you@kiit.ac.in"
+              aria-label="Email address"
               value={email}
               onChange={e => setEmail(e.target.value)}
               style={inputStyle}
@@ -176,6 +178,7 @@ export default function SignupPage() {
               <input
                 type="password"
                 placeholder="Password (min 6 characters)"
+                aria-label="Password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 style={inputStyle}
