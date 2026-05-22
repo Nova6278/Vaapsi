@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { usePathname } from 'next/navigation'
@@ -82,7 +83,8 @@ export default function Navbar() {
         className="px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-50">
 
         {/* Logo */}
-        <Link href={loggedIn ? '/dashboard' : '/'} className="shrink-0">
+        <Link href={loggedIn ? '/dashboard' : '/'} className="shrink-0 flex items-center gap-2">
+          <Image src="/vaapsi-logo.svg" alt="Vaapsi logo" width={28} height={28} />
           <span style={{
             fontSize: '22px',
             fontWeight: 800,
