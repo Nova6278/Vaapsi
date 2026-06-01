@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
+import { createServerClient } from '@supabase/ssr'
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -25,7 +26,6 @@ const limiters = {
   }),
 }
 
-// Security headers applied to EVERY response
 const securityHeaders = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
@@ -159,7 +159,7 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // --- Rate limiting (only on specific routes) ---
+  // --- Rate limiting ---
   let limiter: Ratelimit | null = null
   let isApiRoute = false
 
@@ -176,57 +176,81 @@ export async function middleware(req: NextRequest) {
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1'
     const identifier = `${ip}:${path}`
 
-    const { success, limit, remaining, reset } = await limiter.limit(identifier)
+    try {
+      const { success, limit, remaining, reset } = await limiter.limit(identifier)
 
-    if (!success) {
-      if (isApiRoute) {
-        const res = NextResponse.json(
-          { error: 'Too many requests. Please slow down.' },
-          {
-            status: 429,
-            headers: {
-              'X-RateLimit-Limit': limit.toString(),
-              'X-RateLimit-Remaining': remaining.toString(),
-              'X-RateLimit-Reset': reset.toString(),
-            },
-          }
-        )
+      if (!success) {
+        if (isApiRoute) {
+          const res = NextResponse.json(
+            { error: 'Too many requests. Please slow down.' },
+            {
+              status: 429,
+              headers: {
+                'X-RateLimit-Limit': limit.toString(),
+                'X-RateLimit-Remaining': remaining.toString(),
+                'X-RateLimit-Reset': reset.toString(),
+              },
+            }
+          )
+          return applySecurityHeaders(res)
+        }
+
+        const res = new NextResponse(rateLimitHtml(reset), {
+          status: 429,
+          headers: {
+            'Content-Type': 'text/html',
+            'X-RateLimit-Limit': limit.toString(),
+            'X-RateLimit-Remaining': remaining.toString(),
+            'X-RateLimit-Reset': reset.toString(),
+          },
+        })
         return applySecurityHeaders(res)
       }
 
-      const res = new NextResponse(rateLimitHtml(reset), {
-        status: 429,
-        headers: {
-          'Content-Type': 'text/html',
-          'X-RateLimit-Limit': limit.toString(),
-          'X-RateLimit-Remaining': remaining.toString(),
-          'X-RateLimit-Reset': reset.toString(),
-        },
-      })
-      return applySecurityHeaders(res)
-    }
+      const response = NextResponse.next()
+      response.headers.set('X-RateLimit-Limit', limit.toString())
+      response.headers.set('X-RateLimit-Remaining', remaining.toString())
+      response.headers.set('X-RateLimit-Reset', reset.toString())
+      return applySecurityHeaders(response)
 
-    const response = NextResponse.next()
-    response.headers.set('X-RateLimit-Limit', limit.toString())
-    response.headers.set('X-RateLimit-Remaining', remaining.toString())
-    response.headers.set('X-RateLimit-Reset', reset.toString())
-    return applySecurityHeaders(response)
+    } catch {
+      // Redis unavailable — fail open, let request through
+      const response = NextResponse.next()
+      return applySecurityHeaders(response)
+    }
   }
 
-  // --- No rate limiting needed, just add security headers ---
+  // --- Ban check on protected routes ---
+  const protectedRoutes = ['/dashboard', '/posts', '/my-posts', '/my-claims', '/profile', '/notifications', '/handoff', '/handoffs']
+  const isProtected = protectedRoutes.some(r => path.startsWith(r))
+
+  if (isProtected) {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return req.cookies.getAll() },
+          setAll() {},
+        },
+      }
+    )
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data: userData } = await supabase.from('users').select('is_banned').eq('id', user.id).single()
+      if (userData?.is_banned) {
+        const res = NextResponse.redirect(new URL('/banned', req.url))
+        return applySecurityHeaders(res)
+      }
+    }
+  }
+
   const response = NextResponse.next()
   return applySecurityHeaders(response)
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths EXCEPT:
-     * - _next/static (static files)
-     * - _next/image (image optimization)
-     * - favicon.ico
-     * - public folder assets
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

@@ -12,7 +12,27 @@ const notifySchema = z.object({
   postId: z.string().uuid().optional(),
 });
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;")
+}
+
 export async function POST(req: NextRequest) {
+  const { createServerClient } = await import('@supabase/ssr')
+  const { cookies } = await import('next/headers')
+  const cookieStore = await cookies()
+  const supabaseAuth = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { get: (name) => cookieStore.get(name)?.value } }
+  )
+  const { data: { user } } = await supabaseAuth.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   let body: unknown;
   try {
     body = await req.json();
@@ -29,6 +49,22 @@ export async function POST(req: NextRequest) {
 
   const supabase = createAdminSupabase();
 
+  // Authorization: caller must be admin OR own the post being notified about
+  const isAdmin = user.email === process.env.ADMIN_EMAIL
+  if (!isAdmin) {
+    if (!postId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+    const { data: post } = await supabase
+      .from('posts')
+      .select('user_id')
+      .eq('id', postId)
+      .single()
+    if (!post || post.user_id !== user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+  }
+
   const { error: notifError } = await supabase.from("notifications").insert({
     user_id: userId,
     message,
@@ -44,6 +80,7 @@ export async function POST(req: NextRequest) {
     await supabase.auth.admin.getUserById(userId);
 
   if (!userError && userData?.user?.email) {
+    const safeMessage = escapeHtml(message)
     const sendEmail = async (attempt = 1): Promise<void> => {
       try {
         await resend.emails.send({
@@ -53,7 +90,7 @@ export async function POST(req: NextRequest) {
           html: `
             <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
               <h2 style="color: #111;">Vaapsi — Lost & Found</h2>
-              <p style="font-size: 16px; color: #333;">${message}</p>
+              <p style="font-size: 16px; color: #333;">${safeMessage}</p>
               <a href="https://vaapsi.vercel.app/notifications"
                  style="display: inline-block; margin-top: 16px; padding: 10px 20px;
                         background: #000; color: #fff; border-radius: 8px;

@@ -1,6 +1,7 @@
 import { createServerSupabase } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import LogoutButton from './LogoutButton'
 
 export default async function ProfilePage() {
   const supabase = await createServerSupabase()
@@ -8,7 +9,6 @@ export default async function ProfilePage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // 2 queries instead of 8
   const [{ data: posts }, { data: claims }] = await Promise.all([
     supabase.from('posts').select('type, status').eq('user_id', user.id),
     supabase.from('claims').select('status').eq('claimant_id', user.id),
@@ -89,7 +89,7 @@ export default async function ProfilePage() {
           </div>
         </div>
 
-        <div className="rounded-2xl p-5"
+        <div className="rounded-2xl p-5 mb-6"
           style={{ background: '#0d1225', border: '1px solid rgba(255,255,255,0.06)' }}>
           <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: '#4a5068' }}>
             Quick links
@@ -108,6 +108,14 @@ export default async function ProfilePage() {
               Handoffs →
             </Link>
           </div>
+        </div>
+
+        <div className="rounded-2xl p-5 mb-6"
+          style={{ background: '#0d1225', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: '#4a5068' }}>
+            Account
+          </p>
+          <LogoutButton />
         </div>
 
         <Link href="/dashboard" className="block mt-6 text-center text-xs" style={{ color: '#4a5068' }}>

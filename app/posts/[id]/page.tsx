@@ -1,24 +1,28 @@
-import { createClient } from '@supabase/supabase-js'
+import { createServerSupabase } from '@/lib/supabase-server'
+import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import ReportButton from './ReportButton'
+import Image from 'next/image'
 
 export default async function PostDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const supabase = await createServerSupabase()
 
-  const { data: post, error } = await supabase
+  const { data: post } = await supabase
     .from('posts')
     .select('*')
     .eq('id', id)
     .single()
 
-  if (!post) return (
-    <main style={{ background: '#080c18', minHeight: '100vh' }} className="flex items-center justify-center">
-      <p style={{ color: '#8b92a5' }}>Post not found. {error?.message}</p>
-    </main>
-  )
+  if (!post) notFound()
+
+  let signedPhotoUrl: string | null = null
+  if (post?.photo_url) {
+    const { data: signed } = await supabase.storage
+      .from('post-images')
+      .createSignedUrl(post.photo_url, 3600)
+    signedPhotoUrl = signed?.signedUrl ?? null
+  }
 
   const isResolved = post.status === 'resolved'
 
@@ -26,7 +30,6 @@ export default async function PostDetail({ params }: { params: Promise<{ id: str
     <main style={{ background: '#080c18', minHeight: '100vh' }} className="px-4 py-8">
       <div className="max-w-xl mx-auto">
 
-        {/* Resolved banner */}
         {isResolved && (
           <div className="rounded-xl p-4 mb-4 text-center"
             style={{ background: '#14301f', border: '1px solid #14532d' }}>
@@ -36,19 +39,16 @@ export default async function PostDetail({ params }: { params: Promise<{ id: str
           </div>
         )}
 
-        {/* Card */}
         <div className="rounded-2xl overflow-hidden" style={{ background: '#0d1225', border: '1px solid rgba(255,255,255,0.06)' }}>
 
-          {/* Image */}
-          {post.photo_url && (
+          {signedPhotoUrl && (
             <div className="relative h-64 overflow-hidden">
-              <img src={post.photo_url} alt={post.title} className="w-full h-full object-cover" />
+              <Image src={signedPhotoUrl} alt={post.title} fill className="object-cover" unoptimized />
               <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, #0d1225cc, transparent)' }} />
             </div>
           )}
 
           <div className="p-6">
-            {/* Badge + date */}
             <div className="flex items-center justify-between mb-4">
               <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
                 style={post.type === 'lost'
@@ -63,12 +63,10 @@ export default async function PostDetail({ params }: { params: Promise<{ id: str
               </span>
             </div>
 
-            {/* Title */}
             <h1 className="text-2xl font-bold leading-snug" style={{ color: '#f0f2f5' }}>
               {post.title}
             </h1>
 
-            {/* Meta */}
             <div className="flex items-center gap-3 mt-2">
               <p className="text-sm" style={{ color: '#8b92a5' }}>📍 {post.location}</p>
               {post.category && (
@@ -78,14 +76,12 @@ export default async function PostDetail({ params }: { params: Promise<{ id: str
               )}
             </div>
 
-            {/* Description */}
             {post.description && (
               <p className="mt-4 text-sm leading-relaxed" style={{ color: '#8b92a5' }}>
                 {post.description}
               </p>
             )}
 
-            {/* Verification question — hide if resolved or lost post */}
             {post.verification_question && !isResolved && post.type !== 'lost' && (
               <div className="mt-6 rounded-xl p-4" style={{ background: '#111830', border: '1px solid rgba(255,255,255,0.06)' }}>
                 <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#4a5068' }}>
@@ -97,7 +93,6 @@ export default async function PostDetail({ params }: { params: Promise<{ id: str
               </div>
             )}
 
-            {/* CTA — hide if resolved */}
             {!isResolved && (
               <Link href={`/posts/${id}/claim`}>
                 <button className="mt-6 w-full py-3 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
@@ -107,11 +102,12 @@ export default async function PostDetail({ params }: { params: Promise<{ id: str
               </Link>
             )}
 
-            {/* Back */}
-            <Link href="/dashboard" className="block mt-4 text-center text-xs"
-              style={{ color: '#4a5068' }}>
-              ← Back to dashboard
-            </Link>
+            <div className="flex items-center justify-between mt-4">
+              <Link href="/dashboard" className="text-xs" style={{ color: '#4a5068' }}>
+                ← Back to dashboard
+              </Link>
+              <ReportButton postId={id} />
+            </div>
           </div>
         </div>
       </div>

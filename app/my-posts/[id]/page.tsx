@@ -81,11 +81,36 @@ export default function PostClaims() {
   }, [postId]);
 
   const updateClaim = async (claimId: string, status: "confirmed" | "rejected") => {
+    // #9 — block if already confirmed
+    if (status === "confirmed") {
+      const alreadyConfirmed = claims.some((c) => c.status === "confirmed")
+      if (alreadyConfirmed) {
+        alert("A claim is already confirmed for this post.")
+        return
+      }
+    }
+
     await supabase.from("claims").update({ status }).eq("id", claimId);
     setClaims(claims.map((c) => (c.id === claimId ? { ...c, status } : c)));
 
     const claim = claims.find((c) => c.id === claimId);
     if (claim && post) {
+      // #10 — for confirmed, create handoff FIRST, rollback if it fails
+      if (status === "confirmed") {
+        const res = await fetch("/api/handoff", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ postId, claimantId: claim.claimant_id }),
+        });
+        if (!res.ok) {
+          // rollback claim status
+          await supabase.from("claims").update({ status: "pending" }).eq("id", claimId);
+          setClaims(claims.map((c) => (c.id === claimId ? { ...c, status: "pending" } : c)));
+          alert("Failed to create handoff. Please try again.");
+          return;
+        }
+      }
+
       await createNotificationClient({
         userId: claim.claimant_id,
         message: status === "confirmed"
@@ -93,17 +118,6 @@ export default function PostClaims() {
           : `Your claim for "${post.title}" was rejected.`,
         claimId,
       });
-
-      if (status === "confirmed") {
-        await fetch("/api/handoff", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            postId,
-            claimantId: claim.claimant_id,
-          }),
-        });
-      }
     }
   };
 

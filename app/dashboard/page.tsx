@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import Link from 'next/link'
 import RefreshButton from './RefreshButton'
+import Image from 'next/image'
 
 const CATEGORIES = [
   'All',
@@ -37,6 +38,10 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [selectedType, setSelectedType] = useState<'all' | 'lost' | 'found'>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [suggestion, setSuggestion] = useState('')
+  const [suggestionSent, setSuggestionSent] = useState(false)
+  const [suggestionLoading, setSuggestionLoading] = useState(false)
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -49,7 +54,18 @@ export default function Dashboard() {
       .select('*')
       .eq('status', 'active')
       .order('created_at', { ascending: false })
-    setPosts((data as Post[]) ?? [])
+    const rawPosts = (data as Post[]) ?? []
+
+    // generate signed URLs for all post images
+    const withSigned = await Promise.all(rawPosts.map(async (p) => {
+      if (!p.photo_url) return p
+      const { data: signed } = await supabase.storage
+        .from('post-images')
+        .createSignedUrl(p.photo_url, 3600)
+      return { ...p, photo_url: signed?.signedUrl ?? null }
+    }))
+
+    setPosts(withSigned)
     setLoading(false)
   }
 
@@ -57,6 +73,7 @@ export default function Dashboard() {
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { window.location.href = '/login'; return }
+      setCurrentUserId(user.id)
       fetchPosts()
     }
     checkAuth()
@@ -66,8 +83,18 @@ export default function Dashboard() {
   const filtered = posts.filter(p => {
     if (selectedCategory !== 'All' && p.category !== selectedCategory) return false
     if (selectedType !== 'all' && p.type !== selectedType) return false
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      if (
+        !p.title.toLowerCase().includes(q) &&
+        !p.description?.toLowerCase().includes(q) &&
+        !p.location?.toLowerCase().includes(q)
+      ) return false
+    }
     return true
   })
+
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
   const total = filtered.length
   const lost = filtered.filter(p => p.type === 'lost').length
@@ -172,6 +199,28 @@ export default function Dashboard() {
               Active listings from campus
             </p>
 
+            {/* Search */}
+            <div className="relative mb-3">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#4a5068' }}>🔍</span>
+              <input
+                type="text"
+                placeholder="Search by title, description, location..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 rounded-lg text-sm outline-none"
+                style={{
+                  background: 'rgba(13,18,37,0.8)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: '#f0f2f5',
+                }}
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs"
+                  style={{ color: '#4a5068' }}>✕</button>
+              )}
+            </div>
+
             {/* Type filter */}
             <div className="flex gap-2 mb-3">
               {(['all', 'lost', 'found'] as const).map(t => (
@@ -215,7 +264,7 @@ export default function Dashboard() {
                   : 'No posts yet'}
               </p>
               {selectedCategory !== 'All' || selectedType !== 'all' ? (
-                <button onClick={() => { setSelectedCategory('All'); setSelectedType('all') }}
+                <button onClick={() => { setSelectedCategory('All'); setSelectedType('all'); setSearchQuery('') }}
                   className="mt-4 text-sm" style={{ color: '#185FA5' }}>
                   Clear filters
                 </button>
@@ -243,8 +292,8 @@ export default function Dashboard() {
 
                   {post.photo_url ? (
                     <div className="relative h-44 overflow-hidden">
-                      <img src={post.photo_url} alt={post.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      <Image src={post.photo_url} alt={post.title} fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-300" unoptimized />
                       <div className="absolute inset-0"
                         style={{ background: 'linear-gradient(to top, rgba(5,10,21,0.8), transparent)' }} />
                       <span className="absolute top-3 left-3 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
@@ -304,6 +353,50 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
+
+          {/* Suggestion box */}
+          <div className="mt-12 max-w-xl mx-auto">
+            <div className="rounded-2xl p-6"
+              style={{ background: 'rgba(13,18,37,0.6)', border: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(12px)' }}>
+              <h3 className="text-sm font-semibold mb-1" style={{ color: '#f0f2f5' }}>💡 Suggest a feature</h3>
+              <p className="text-xs mb-4" style={{ color: '#4a5068' }}>What would make Vaapsi better for you?</p>
+              {suggestionSent ? (
+                <p className="text-sm text-center py-4" style={{ color: '#4ade80' }}>✓ Thanks! We read every suggestion.</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <textarea
+                    rows={3}
+                    placeholder="e.g. Add a map view, email alerts, dark mode..."
+                    value={suggestion}
+                    onChange={e => setSuggestion(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none"
+                    style={{
+                      background: 'rgba(17,24,48,0.8)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      color: '#f0f2f5',
+                    }}
+                  />
+                  <button
+                    disabled={!suggestion.trim() || suggestionLoading}
+                    onClick={async () => {
+                      if (!suggestion.trim()) return
+                      setSuggestionLoading(true)
+                      await supabase.from('suggestions').insert({
+                        user_id: currentUserId,
+                        suggestion: suggestion.trim(),
+                      })
+                      setSuggestionSent(true)
+                      setSuggestionLoading(false)
+                    }}
+                    className="self-end px-4 py-2 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-40"
+                    style={{ background: '#185FA5', color: '#fff' }}>
+                    {suggestionLoading ? 'Sending...' : 'Send →'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
       </div>
     </main>
   )

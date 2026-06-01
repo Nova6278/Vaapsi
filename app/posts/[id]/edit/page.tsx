@@ -32,7 +32,8 @@ export default function EditPost() {
   const [error, setError] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [existingImage, setExistingImage] = useState<string | null>(null)
+  const [existingImage, setExistingImage] = useState<string | null>(null)       // signed URL for display
+  const [existingImagePath, setExistingImagePath] = useState<string | null>(null) // storage path for DB
   const [unauthorized, setUnauthorized] = useState(false)
 
   const [form, setForm] = useState({
@@ -74,7 +75,15 @@ export default function EditPost() {
         description: post.description ?? '',
         verification_question: post.verification_question ?? '',
       })
-      setExistingImage(post.photo_url)
+
+      if (post.photo_url) {
+        setExistingImagePath(post.photo_url)
+        const { data: signed } = await supabase.storage
+          .from('post-images')
+          .createSignedUrl(post.photo_url, 3600)
+        setExistingImage(signed?.signedUrl ?? null)
+      }
+
       setFetching(false)
     }
     fetchPost()
@@ -148,14 +157,16 @@ export default function EditPost() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setError('You must be logged in.'); setLoading(false); return }
 
-    let photoUrl: string | null = existingImage
+    let photoUrl: string | null = existingImagePath
     if (imageFile) {
       const fileExt = imageFile.name.split('.').pop()?.toLowerCase()
       const fileName = `${user.id}-${Date.now()}.${fileExt}`
       const { error: uploadError } = await supabase.storage.from('post-images').upload(fileName, imageFile)
       if (uploadError) { setError(`Image upload failed: ${uploadError.message}`); setLoading(false); return }
-      const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(fileName)
-      photoUrl = urlData.publicUrl
+      if (existingImagePath) {
+        await supabase.storage.from('post-images').remove([existingImagePath])
+      }
+      photoUrl = fileName
     }
 
     const { error: updateError } = await supabase

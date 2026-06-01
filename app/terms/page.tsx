@@ -45,7 +45,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="text-base font-semibold mb-2" style={{ color: '#f0f2f5' }}>8. Contact</h2>
-            <p>Questions about these terms? Reach out at <a href="mailto:rajdeepoff78@gmail.com" style={{ color: '#185FA5' }}>rajdeepoff78@gmail.com</a>.</p>
+            <p>Questions about these terms? Reach out at <a href="mailto:2330427@kiit.ac.in" style={{ color: '#185FA5' }}>2330427@kiit.ac.in</a>.</p>
           </section>
         </div>
       </div>

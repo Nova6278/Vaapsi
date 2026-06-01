@@ -1,6 +1,13 @@
 import Link from "next/link";
+import { createServerSupabase } from '@/lib/supabase-server'
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createServerSupabase()
+  const { count } = await supabase
+    .from('handoffs')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'completed')
+  const returnCount = count ?? 0
   return (
     <main className="relative min-h-screen overflow-hidden" style={{ background: '#050a15' }}>
 
@@ -117,6 +124,26 @@ export default function Home() {
             </Link>
           </div>
         </div>
+
+        {/* Success counter */}
+        {returnCount > 0 && (
+          <div className="mb-12 flex justify-center"
+            style={{ animation: 'fadeUp 0.8s ease-out 0.45s both' }}>
+            <div className="flex items-center gap-3 px-6 py-3 rounded-2xl"
+              style={{
+                background: 'rgba(74,222,128,0.08)',
+                border: '1px solid rgba(74,222,128,0.2)',
+              }}>
+              <span className="text-2xl">🤝</span>
+              <div>
+                <span className="text-2xl font-bold" style={{ color: '#4ade80' }}>{returnCount}</span>
+                <span className="text-sm ml-2" style={{ color: '#8b92a5' }}>
+                  {returnCount === 1 ? 'item returned' : 'items successfully returned'}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* How it works */}
         <div className="w-full max-w-3xl"

@@ -1,5 +1,4 @@
 "use client";
-
 import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
@@ -9,7 +8,6 @@ export default function DeletePostButton({ postId, postTitle }: { postId: string
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const router = useRouter();
-
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -18,13 +16,23 @@ export default function DeletePostButton({ postId, postTitle }: { postId: string
   const handleDelete = async () => {
     setDeleting(true);
 
-    // 1. Fetch all claims to get claimant IDs before cascade kills them
+    // 1. Fetch claimant IDs before cascade kills them
     const { data: claims } = await supabase
       .from("claims")
       .select("claimant_id")
       .eq("post_id", postId);
 
-    // 2. Notify each claimant
+    // 2. Delete FIRST
+    const { error } = await supabase.from("posts").delete().eq("id", postId);
+    if (error) {
+      console.error("Delete failed:", error);
+      alert("Failed to delete post. Try again.");
+      setDeleting(false);
+      setConfirming(false);
+      return;
+    }
+
+    // 3. Notify ONLY after confirmed delete
     if (claims && claims.length > 0) {
       const uniqueClaimants = [...new Set(claims.map((c) => c.claimant_id))];
       await Promise.all(
@@ -35,17 +43,6 @@ export default function DeletePostButton({ postId, postTitle }: { postId: string
           })
         )
       );
-    }
-
-    // 3. Now delete post (cascade handles claims + notifications)
-    const { error } = await supabase.from("posts").delete().eq("id", postId);
-
-    if (error) {
-      console.error("Delete failed:", error);
-      alert("Failed to delete post. Try again.");
-      setDeleting(false);
-      setConfirming(false);
-      return;
     }
 
     router.refresh();

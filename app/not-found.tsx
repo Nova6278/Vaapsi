@@ -10,10 +10,10 @@ export default function NotFound() {
         <p className="text-sm mb-6" style={{ color: '#8b92a5' }}>
           This page does not exist or was removed.
         </p>
-        <Link href="/dashboard"
+        <Link href="/"
           className="inline-block py-2.5 px-6 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
           style={{ background: '#185FA5' }}>
-          Back to dashboard
+          Back to home
         </Link>
       </div>
     </main>

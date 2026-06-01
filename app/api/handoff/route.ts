@@ -52,6 +52,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Not your post" }, { status: 403 });
   }
 
+  const { data: confirmedClaim } = await supabase
+    .from('claims')
+    .select('id')
+    .eq('post_id', postId)
+    .eq('claimant_id', claimantId)
+    .eq('status', 'confirmed')
+    .single()
+
+  if (!confirmedClaim) {
+    return NextResponse.json({ error: 'No confirmed claim for this claimant' }, { status: 403 })
+  }
+
   const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!

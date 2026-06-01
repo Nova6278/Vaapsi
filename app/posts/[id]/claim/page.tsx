@@ -107,6 +107,33 @@ export default function ClaimPost() {
       return
     }
 
+    // #15 server-side own-post guard
+    const { data: freshPost } = await supabase
+      .from('posts')
+      .select('user_id')
+      .eq('id', postId)
+      .single()
+
+    if (freshPost?.user_id === user.id) {
+      setError('You cannot claim your own post.')
+      setLoading(false)
+      return
+    }
+
+    // #15 server-side duplicate guard
+    const { data: dupCheck } = await supabase
+      .from('claims')
+      .select('id')
+      .eq('post_id', postId)
+      .eq('claimant_id', user.id)
+      .limit(1)
+
+    if (dupCheck && dupCheck.length > 0) {
+      setError('You have already submitted a claim on this post.')
+      setLoading(false)
+      return
+    }
+
     const { data: claim, error: claimError } = await supabase
       .from('claims')
       .insert({ post_id: postId, claimant_id: user.id, answer: cleanedAnswer, status: 'pending' })

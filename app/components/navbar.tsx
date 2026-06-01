@@ -11,6 +11,7 @@ export default function Navbar() {
   const [handoffCount, setHandoffCount] = useState(0)
   const [loggedIn, setLoggedIn] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const pathname = usePathname()
 
   useEffect(() => {
@@ -19,6 +20,7 @@ export default function Navbar() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       setLoggedIn(true)
+      if (user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL) setIsAdmin(true)
 
       const { count, error } = await supabase
         .from('notifications')
@@ -52,33 +54,11 @@ export default function Navbar() {
     { href: '/my-posts', label: 'My Posts' },
     { href: '/my-claims', label: 'My Claims' },
     { href: '/profile', label: 'Profile' },
+    ...(isAdmin ? [{ href: '/admin', label: 'Admin' }] : []),
   ]
 
   return (
     <>
-      <style>{`
-        @keyframes bell-ring {
-          0%   { transform: rotate(0deg); }
-          10%  { transform: rotate(15deg); }
-          20%  { transform: rotate(-13deg); }
-          30%  { transform: rotate(11deg); }
-          40%  { transform: rotate(-9deg); }
-          50%  { transform: rotate(7deg); }
-          60%  { transform: rotate(-5deg); }
-          70%  { transform: rotate(3deg); }
-          80%  { transform: rotate(-2deg); }
-          90%  { transform: rotate(1deg); }
-          100% { transform: rotate(0deg); }
-        }
-        .bell-link:hover .bell-icon {
-          animation: bell-ring 0.6s ease;
-          stroke: #185FA5;
-        }
-        .handoff-link:hover .handoff-icon {
-          transform: scale(1.15);
-        }
-      `}</style>
-
       <nav style={{ background: '#080c18', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
         className="px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-50">
 
@@ -147,21 +127,21 @@ export default function Navbar() {
 
             {/* Hamburger — mobile only */}
             <button
-              className="sm:hidden flex flex-col justify-center items-center w-6 h-6 gap-[5px]"
+              className="sm:hidden flex flex-col justify-center items-center w-6 h-6 gap-1.5"
               onClick={() => setMenuOpen(!menuOpen)}
               aria-label="Toggle menu"
             >
-              <span className="block w-5 h-[2px] rounded-full transition-all duration-200"
+              <span className="block w-5 h-0.5 rounded-full transition-all duration-200"
                 style={{
                   background: '#8b92a5',
                   transform: menuOpen ? 'rotate(45deg) translate(2.5px, 2.5px)' : 'none',
                 }} />
-              <span className="block w-5 h-[2px] rounded-full transition-all duration-200"
+              <span className="block w-5 h-0.5 rounded-full transition-all duration-200"
                 style={{
                   background: '#8b92a5',
                   opacity: menuOpen ? 0 : 1,
                 }} />
-              <span className="block w-5 h-[2px] rounded-full transition-all duration-200"
+              <span className="block w-5 h-0.5 rounded-full transition-all duration-200"
                 style={{
                   background: '#8b92a5',
                   transform: menuOpen ? 'rotate(-45deg) translate(2.5px, -2.5px)' : 'none',

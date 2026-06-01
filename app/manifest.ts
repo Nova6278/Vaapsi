@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Vaapsi",
     description:
       "Lost something on campus? Found someone's belongings? Vaapsi helps KIIT students recover lost items.",
-    start_url: "/dashboard",
+    start_url: "/",
     display: "standalone",
     background_color: "#080c18",
     theme_color: "#185FA5",

@@ -25,7 +25,6 @@ interface MessageRow {
   is_read: boolean;
 }
 
-// Tiny notification beep — base64-encoded WAV (short blip, ~0.1s)
 const NOTIF_SOUND_B64 =
   "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVYGAACAgICAgICAgICAgICAgICAgICAgICAgICAf3+AgYGBgIB/f35+fn5/f4CAgYGBgYGAgH9+fX19fn5/gIGBgoKCgYF/fn18fH1+f4CBgoODgoKBf358fHx9fn+AgYKDg4OCgX9+fHt8fX5/gIGCg4SDgoF/fnx7e3x+f4CBgoOEg4KBf357e3t8fX+AgYKDhIOCgX9+fHt7fH1/gIGCg4SDgoF/fnx7e3x9f4CBgoOEg4OBf358e3t8fX+AgYKDhIOCgX9+fHt7fH1/gIGCg4SDg4F/fn17e3x9f4CBgoOEhIOBgH58e3t8fX+AgYKDhISDgYB+fHt7fH1/gIGCg4SEg4GAfnx7e3x9f4CBgoOEhIOBgH58e3t8fX+AgYKDhISDgYB+fHt7fH5/gIGCg4SEg4GAfnx7fHx9f4CBgoOEhIOBgH58e3x8fX+AgYKDhISDgYB+fHt8fH1/gIGCg4SEg4GAfn17fHx9f4CBgoOEhIOBgH59e3x8fX+AgYKDhISDgYB+fXt8fH1/gIGCg4SEg4KAfn17fHx9f4CBgoOEhIOCgH59e3x8fX+AgYKDhISDgoB+fXt8fH5/gIGCg4SEg4KAfn17fHx+f4CBgoOEhIOCgH59fHx8fn+AgYKDhISDgoB+fXx8fH5/gIGCg4SEg4KAfn18fHx+f4CBgoOEhIOCgH5+fHx9fn+AgYKDhISDgoB/fn18fH1+f4CBgoOEhIOCgH9+fXx9fn+AgYKDhISDgoB/fn18fX5/gIGCg4SEg4KAf359fH1+f4CBgoOEg4OCgH9+fX19fn+AgYKDhIODgoB/fn19fX5/gIGCg4SDg4KAf35+fX1+f4CBgoOEg4OCgH9/fn19fn+AgYKDhIODgoCAf35+fX5/gIGCg4SDg4KBAH9+fn5+f4CBgoOEg4OCgYB/fn5+fn+AgYKDg4ODgoGAf39+fn5/gIGCg4ODg4KBgH9/fn5+f4CBgoODg4OCgYCAf39+fn+AgIGCg4ODg4KBgIB/f39/f4CAgYKDg4ODgoGAgH9/f39/gICBgoODg4OCgYCAf39/f3+AgIGCg4ODgoKBgICAf39/f4CAgYKDg4OCgoGAgIB/f39/gICBgoKDg4KCgYCAgH+Af3+AgIGCgoODgoKBgICAgH+Af4CAgYKCg4OCgoGBgICAgICAgICAgYKCg4OCgoGBgICAgICAgICAgYKCgoOCgoKBgYCAgICAgICAgIGCgoKDgoKCgYGAgICAgICAgICBgoKCg4KCgoGBgICAgICAgICAgYGCgoKCgoKBgYGAgICAgICAgICBgYKCgoKCgoGBgYCAgICAgICAgIGBgoKCgoKCgYGBgICAgICAgICAgYGBgoKCgoKBgYGAgICAgICAgICBgYGCgoKCgoGBgYCAgICAgICAgIGBgYKCgoKCgYGBgICAgICAgICAgYGBgoKCgoGBgYGAgICAgICAgICBgYGBgoKCgoGBgYGAgICAgICAgICBgYGBgoKCgYGBgYCAgICAgICAgICBgYGBgoKCgYGBgYCAgICAgICAgICBgYGBgoKCgYGBgYCAgICAgICAgICBgYGBgoKCgYGBgYCAgICAgICAgICBgYGBgYKCgYGBgYCAgICAgICAgICBgYGBgYKCgYGBgYGAgICAgICAgICBgYGBgYKCgYGBgYGAgICAgICAgICBgYGBgYGCgYGBgYGAgICAgICAgICAgYGBgYGCgYGBgYGAgICAgICAgICAgYGBgYGBgYGBgYGAgICAgICAgICAgYGBgYGBgYGBgYGAgICAgICAgICAgYGBgYGBgYGBgYGAgICAgICAgICAgYGBgYGBgYGBgYGAgICAgICAgICAgYGBgYGBgYGBgYCAgICAgICAgICAgYGBgYGBgYGBgYCAgICAgICAgICAgYGBgYGBgYGBgYCAgICAgICAgICAgIGBgYGBgYGBgYCAgICAgICAgICAgIGBgYGBgYGBgYCAgICAgICAgICAgIGBgYGBgYGBgICAgICAgICAgICAgIGBgYGBgYGBgICAgICAgICAgICAgICBgYGBgYGBgICAgICAgICAgICAgICBgYGBgYGBgICAgICAgICAgICAgICBgYGBgYGAgICAgICAgICAgICAgICAgYGBgYGAgICAgICAgICAgICAgICAgYGBgYGAgICAgICAgICAgICAgICAgYGBgYGAgICAgICAgICAgICAgICAgIGBgYGAgICAgICAgICAgICAgICAgICBgYGAgICAgICAgICAgA==";
 
@@ -50,7 +49,6 @@ export default function HandoffChat() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // Initialize audio element on mount (client-side only)
   useEffect(() => {
     audioRef.current = new Audio(NOTIF_SOUND_B64);
     audioRef.current.volume = 0.5;
@@ -62,7 +60,6 @@ export default function HandoffChat() {
       if (!user) { router.push("/login"); return; }
       setUserId(user.id);
 
-      // Request notification permission (non-blocking)
       if (typeof window !== "undefined" && "Notification" in window) {
         const perm = Notification.permission;
         setNotifPermission(perm);
@@ -117,9 +114,7 @@ export default function HandoffChat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handoffId]);
 
-  // Notify helper — plays sound + shows browser notification
   const notifyNewMessage = useCallback((content: string) => {
-    // Play sound (works even when tab is focused)
     try {
       if (audioRef.current) {
         audioRef.current.currentTime = 0;
@@ -127,7 +122,6 @@ export default function HandoffChat() {
       }
     } catch {}
 
-    // Browser notification only when tab not focused
     if (!document.hasFocus() && notifPermission === "granted") {
       try {
         const n = new Notification("Vaapsi — New message", {
@@ -146,41 +140,47 @@ export default function HandoffChat() {
   useEffect(() => {
     if (!handoffId || !userId) return;
 
+    let polling = false;
     const interval = setInterval(async () => {
-      const { data: msgs } = await supabase
-        .from("handoff_messages")
-        .select("*")
-        .eq("handoff_id", handoffId)
-        .order("created_at", { ascending: true });
+      if (polling) return;
+      polling = true;
+      try {
+        const { data: msgs } = await supabase
+          .from("handoff_messages")
+          .select("*")
+          .eq("handoff_id", handoffId)
+          .order("created_at", { ascending: true });
 
-      if (msgs) {
-        setMessages(msgs as MessageRow[]);
+        if (msgs) {
+          setMessages(msgs as MessageRow[]);
 
-        if (msgs.length > prevMsgCountRef.current) {
-          // Check if new messages are from OTHER person
-          const newMsgs = msgs.slice(prevMsgCountRef.current);
-          const hasOtherMsg = newMsgs.some((m) => m.sender_id !== userId);
+          if (msgs.length > prevMsgCountRef.current) {
+            const newMsgs = msgs.slice(prevMsgCountRef.current);
+            const hasOtherMsg = newMsgs.some((m) => m.sender_id !== userId);
 
-          if (hasOtherMsg) {
-            const lastOtherMsg = [...newMsgs].reverse().find((m) => m.sender_id !== userId);
-            if (lastOtherMsg) {
-              notifyNewMessage(lastOtherMsg.content);
+            if (hasOtherMsg) {
+              const lastOtherMsg = [...newMsgs].reverse().find((m) => m.sender_id !== userId);
+              if (lastOtherMsg) {
+                notifyNewMessage(lastOtherMsg.content);
+              }
             }
+
+            prevMsgCountRef.current = msgs.length;
+            setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
           }
 
-          prevMsgCountRef.current = msgs.length;
-          setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+          const unread = msgs.filter(
+            (m) => m.sender_id !== userId && !m.is_read
+          );
+          if (unread.length > 0) {
+            await supabase
+              .from("handoff_messages")
+              .update({ is_read: true })
+              .in("id", unread.map((m) => m.id));
+          }
         }
-
-        const unread = msgs.filter(
-          (m) => m.sender_id !== userId && !m.is_read
-        );
-        if (unread.length > 0) {
-          await supabase
-            .from("handoff_messages")
-            .update({ is_read: true })
-            .in("id", unread.map((m) => m.id));
-        }
+      } finally {
+        polling = false;
       }
     }, 2000);
 
@@ -227,21 +227,16 @@ export default function HandoffChat() {
     if (!isOwner) return;
     if (!confirm("Item returned? This will close the handoff permanently.")) return;
 
-    await supabase
-      .from("handoff_messages")
-      .update({ is_read: true })
-      .eq("handoff_id", handoffId)
-      .eq("is_read", false);
+    const [r1, r2, r3] = await Promise.all([
+      supabase.from("handoff_messages").update({ is_read: true }).eq("handoff_id", handoffId).eq("is_read", false),
+      supabase.from("handoffs").update({ status: "completed", completed_at: new Date().toISOString() }).eq("id", handoffId),
+      supabase.from("posts").update({ status: "resolved" }).eq("id", handoff!.post_id),
+    ]);
 
-    await supabase
-      .from("handoffs")
-      .update({ status: "completed", completed_at: new Date().toISOString() })
-      .eq("id", handoffId);
-
-    await supabase
-      .from("posts")
-      .update({ status: "resolved" })
-      .eq("id", handoff!.post_id);
+    if (r1.error || r2.error || r3.error) {
+      alert("Something went wrong completing the handoff. Please try again.");
+      return;
+    }
 
     setHandoff(handoff ? { ...handoff, status: "completed" } : null);
   };

@@ -118,8 +118,7 @@ export default function NewPost() {
       const fileName = `${user.id}-${Date.now()}.${fileExt}`
       const { error: uploadError } = await supabase.storage.from('post-images').upload(fileName, imageFile)
       if (uploadError) { setError(`Image upload failed: ${uploadError.message}`); setLoading(false); return }
-      const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(fileName)
-      photoUrl = urlData.publicUrl
+      photoUrl = fileName
     }
 
     const { error: insertError } = await supabase.from('posts').insert({
