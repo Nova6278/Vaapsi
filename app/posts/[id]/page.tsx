@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import ReportButton from './ReportButton'
 import Image from 'next/image'
+import ImageLightbox from './ImageLightbox'
 
 export default async function PostDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -42,10 +43,7 @@ export default async function PostDetail({ params }: { params: Promise<{ id: str
         <div className="rounded-2xl overflow-hidden" style={{ background: '#0d1225', border: '1px solid rgba(255,255,255,0.06)' }}>
 
           {signedPhotoUrl && (
-            <div className="relative h-64 overflow-hidden">
-              <Image src={signedPhotoUrl} alt={post.title} fill className="object-cover" unoptimized />
-              <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, #0d1225cc, transparent)' }} />
-            </div>
+            <ImageLightbox src={signedPhotoUrl} alt={post.title} />
           )}
 
           <div className="p-6">
