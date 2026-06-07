@@ -27,6 +27,7 @@ export default function PostClaims() {
   const [unauthorized, setUnauthorized] = useState(false);
   const [proofUrls, setProofUrls] = useState<Record<string, string>>({});
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [toastHandoffId, setToastHandoffId] = useState<string | null>(null);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -109,17 +110,26 @@ export default function PostClaims() {
           alert("Failed to create handoff. Please try again.");
           return;
         }
+        const handoffData = await res.json();
+        setToastHandoffId(handoffData.handoffId ?? null);
       }
 
       await createNotificationClient({
-        userId: claim.claimant_id,
-        message: status === "confirmed"
-          ? `Your claim for "${post.title}" was confirmed! 🎉`
-          : `Your claim for "${post.title}" was rejected.`,
-        claimId,
-      });
+  userId: claim.claimant_id,
+  message: status === "confirmed"
+    ? `Your claim for "${post.title}" was confirmed! 🎉`
+    : `Your claim for "${post.title}" was rejected.`,
+  claimId,
+  postId,
+});
     }
   };
+
+  useEffect(() => {
+    if (!toastHandoffId) return;
+    const timer = setTimeout(() => setToastHandoffId(null), 6000);
+    return () => clearTimeout(timer);
+  }, [toastHandoffId]);
 
   const refreshProofUrl = async (claimId: string, path: string) => {
     const { data } = await supabase.storage
@@ -261,6 +271,48 @@ export default function PostClaims() {
           ← Back to my posts
         </Link>
       </div>
+
+      {toastHandoffId && (
+        <div
+          className="flex items-center gap-3"
+          style={{
+            position: "fixed",
+            bottom: 24,
+            left: "50%",
+            transform: "translateX(-50%)",
+            maxWidth: "384px",
+            width: "calc(100% - 32px)",
+            background: "#0d1225",
+            border: "1px solid #14532d",
+            borderRadius: 16,
+            padding: "16px 20px",
+            zIndex: 200,
+            boxShadow: "0 16px 48px rgba(0,0,0,0.5)",
+            animation: "slideUpToast 0.3s ease-out",
+          }}
+        >
+          <style>{`@keyframes slideUpToast { from { opacity: 0; transform: translateX(-50%) translateY(16px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }`}</style>
+          <span className="text-xl shrink-0">🎉</span>
+          <p className="flex-1 text-sm font-medium" style={{ color: "#f0f2f5" }}>
+            Claim confirmed! A handoff chat has been started.
+          </p>
+          <Link
+            href={`/handoff/${toastHandoffId}`}
+            className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold"
+            style={{ background: "#185FA5", color: "#fff" }}
+          >
+            Go to Handoff →
+          </Link>
+          <button
+            onClick={() => setToastHandoffId(null)}
+            className="shrink-0 text-sm"
+            style={{ color: "#4a5068" }}
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {lightboxUrl && (
         <div

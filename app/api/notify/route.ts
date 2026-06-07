@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
 
   const supabase = createAdminSupabase();
 
-  // Authorization: caller must be admin OR own the post being notified about
+  // Authorization: caller must be admin OR own the post OR be a claimant on the post
   const isAdmin = user.email === process.env.ADMIN_EMAIL
   if (!isAdmin) {
     if (!postId) {
@@ -60,7 +60,20 @@ export async function POST(req: NextRequest) {
       .select('user_id')
       .eq('id', postId)
       .single()
-    if (!post || post.user_id !== user.id) {
+
+    const isPostOwner = post?.user_id === user.id
+
+    const { data: claim } = await supabase
+      .from('claims')
+      .select('id')
+      .eq('post_id', postId)
+      .eq('claimant_id', user.id)
+      .limit(1)
+      .maybeSingle()
+
+    const isClaimant = !!claim
+
+    if (!isPostOwner && !isClaimant) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
   }

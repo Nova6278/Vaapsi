@@ -1,6 +1,7 @@
 import { createServerSupabase } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import NotificationTime from './NotificationTime'
 
 export default async function NotificationsPage() {
   const supabase = await createServerSupabase()
@@ -24,14 +25,12 @@ export default async function NotificationsPage() {
     await supabase.from('notifications').update({ is_read: true }).in('id', unreadIds)
   }
 
-  // Collect all post IDs referenced in notifications
   const allPostIds = new Set<string>()
   for (const n of notifications ?? []) {
     if (n.post_id) allPostIds.add(n.post_id)
     if (n.claims?.post_id) allPostIds.add(n.claims.post_id)
   }
 
-  // Check which posts still exist
   const existingPostIds = new Set<string>()
   if (allPostIds.size > 0) {
     const { data: existingPosts } = await supabase
@@ -43,7 +42,6 @@ export default async function NotificationsPage() {
     }
   }
 
-  // For confirmed notifications, find handoff IDs by post_id
   const confirmedPostIds = (notifications ?? [])
     .filter(n => n.message?.includes('confirmed') && n.claims?.post_id)
     .map(n => n.claims.post_id)
@@ -91,11 +89,9 @@ export default async function NotificationsPage() {
             const claimPostId = n.claims?.post_id
             const handoffId = claimPostId ? handoffMap[claimPostId] : null
 
-            // Check if referenced post still exists
             const postExists = n.post_id ? existingPostIds.has(n.post_id) : false
             const claimPostExists = claimPostId ? existingPostIds.has(claimPostId) : false
 
-            // Determine link target
             let href: string | null = null
             let linkLabel: string = ''
 
@@ -113,7 +109,6 @@ export default async function NotificationsPage() {
               linkLabel = 'View post →'
             }
 
-            // Show "item no longer available" for dead links
             const postDeleted = (n.post_id && !postExists) || (claimPostId && !claimPostExists)
 
             const card = (
@@ -132,11 +127,7 @@ export default async function NotificationsPage() {
                       {match ? '🔍' : confirmed ? '🎉' : rejected ? '❌' : '🔔'}
                     </span>
                   </div>
-                  <span className="text-xs shrink-0" style={{ color: '#4a5068' }}>
-                    {new Date(n.created_at).toLocaleString('en-IN', {
-                      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true
-                    })}
-                  </span>
+                  <NotificationTime createdAt={n.created_at} />
                 </div>
 
                 <p className="text-sm mt-3 leading-relaxed" style={{ color: '#f0f2f5' }}>

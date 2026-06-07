@@ -39,28 +39,28 @@ export default function AdminActions({ postId, reportedUserId, userIsBanned, use
   }
 
   const deletePost = async () => {
-    if (!postId) return
-    if (!confirm('Delete this post? Cannot be undone.')) return
-    setLoading(true)
-    setError(null)
-    try {
-      const { createBrowserClient } = await import('@supabase/ssr')
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-      const { error: deleteError } = await supabase.from('posts').delete().eq('id', postId)
-      if (deleteError) {
-        setError('Delete failed — try again')
-        return
-      }
-      router.refresh()
-    } catch {
-      setError('Network error — try again')
-    } finally {
-      setLoading(false)
+  if (!postId) return
+  if (!confirm('Delete this post? Cannot be undone.')) return
+  setLoading(true)
+  setError(null)
+  try {
+    const res = await fetch('/api/admin/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', postId }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      setError(data.error ?? 'Delete failed')
+      return
     }
+    router.refresh()
+  } catch {
+    setError('Network error — try again')
+  } finally {
+    setLoading(false)
   }
+}
 
   const issueWarning = async () => {
     if (!confirm('Issue warning to this user?')) return

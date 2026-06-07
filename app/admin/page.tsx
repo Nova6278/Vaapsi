@@ -2,6 +2,48 @@ import { createServerSupabase } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import AdminActions from './AdminActions'
+import ResetButton from './ResetButton'
+
+type UserRow = {
+  id: string
+  email: string
+  is_banned: boolean
+  warning_issued: boolean
+  ban_reason: string | null
+}
+
+type PostRow = {
+  id: string
+  title: string
+  type: string
+  status: string
+  created_at: string
+  user_id: string
+  location: string
+}
+
+type ReportRow = {
+  id: string
+  post_id: string
+  reporter_id: string
+  reported_user_id: string
+  reason: string | null
+  created_at: string
+}
+
+type ResolvedPost = {
+  id: string
+  type: string
+  status: string
+  updated_at: string
+}
+
+type SuggestionRow = {
+  id: string
+  suggestion: string
+  created_at: string
+  user_id: string
+}
 
 const ADMIN_EMAIL = '2330427@kiit.ac.in'
 
@@ -15,32 +57,31 @@ export default async function AdminPage() {
     { data: posts },
     { data: reports },
     { data: allUsers },
-    { data: handoffs },
+    { data: resolvedList },
     { data: suggestions },
   ] = await Promise.all([
     supabase.from('posts').select('id, title, type, status, created_at, user_id, location').order('created_at', { ascending: false }),
     supabase.from('reports').select('id, post_id, reporter_id, reported_user_id, reason, created_at').order('created_at', { ascending: false }),
     supabase.from('users').select('id, email, is_banned, warning_issued, ban_reason').order('id'),
-    supabase.from('handoffs').select('id, status, created_at').eq('status', 'completed'),
+    supabase.from('posts').select('id, type, status, updated_at').eq('status', 'resolved'),
     supabase.from('suggestions').select('id, suggestion, created_at, user_id').order('created_at', { ascending: false }),
   ])
 
-  const postList = posts ?? []
-  const reportList = reports ?? []
-  const userList = allUsers ?? []
-  const handoffList = handoffs ?? []
-  const suggestionList = suggestions ?? []
-  const reportedPostIds = new Set(reportList.map(r => r.post_id))
+  const postList: PostRow[] = posts ?? []
+  const reportList: ReportRow[] = reports ?? []
+  const userList: UserRow[] = allUsers ?? []
+  const resolvedPosts: ResolvedPost[] = resolvedList ?? []
+  const suggestionList: SuggestionRow[] = suggestions ?? []
+  const reportedPostIds = new Set(reportList.map((r: ReportRow) => r.post_id))
 
-  // monthly returns
   const monthlyReturns: Record<string, number> = {}
-  handoffList.forEach(h => {
-    const key = new Date(h.created_at).toLocaleString('en-IN', { month: 'short', year: 'numeric' })
+  resolvedPosts.forEach((p: ResolvedPost) => {
+    const key = new Date(p.updated_at).toLocaleString('en-IN', { month: 'short', year: 'numeric' })
     monthlyReturns[key] = (monthlyReturns[key] ?? 0) + 1
   })
 
-  const bannedUsers = userList.filter(u => u.is_banned)
-  const warnedUsers = userList.filter(u => u.warning_issued && !u.is_banned)
+  const bannedUsers = userList.filter((u: UserRow) => u.is_banned)
+  const warnedUsers = userList.filter((u: UserRow) => u.warning_issued && !u.is_banned)
 
   return (
     <main style={{ background: '#080c18', minHeight: '100vh' }} className="px-4 py-8">
@@ -49,6 +90,9 @@ export default async function AdminPage() {
         <div className="mb-8">
           <h1 className="text-2xl font-bold" style={{ color: '#f0f2f5' }}>Admin Dashboard</h1>
           <p className="text-sm mt-1" style={{ color: '#4a5068' }}>Only you can see this.</p>
+          <div className="mt-3">
+            <ResetButton />
+          </div>
         </div>
 
         {/* Stats */}
@@ -56,7 +100,7 @@ export default async function AdminPage() {
           {[
             { label: 'Total posts', value: postList.length, color: '#f0f2f5' },
             { label: 'Reports', value: reportList.length, color: reportList.length > 0 ? '#f87171' : '#4ade80' },
-            { label: 'Total returns', value: handoffList.length, color: '#4ade80' },
+            { label: 'Total returns', value: resolvedPosts.length, color: '#4ade80' },
             { label: 'Banned users', value: bannedUsers.length, color: bannedUsers.length > 0 ? '#f87171' : '#4a5068' },
           ].map(s => (
             <div key={s.label} className="rounded-xl p-4 text-center"
@@ -92,11 +136,11 @@ export default async function AdminPage() {
               ⚠ Reported posts
             </h2>
             <div className="flex flex-col gap-2">
-              {postList.filter(p => reportedPostIds.has(p.id)).map(post => {
-                const postReports = reportList.filter(r => r.post_id === post.id)
+              {postList.filter((p: PostRow) => reportedPostIds.has(p.id)).map((post: PostRow) => {
+                const postReports = reportList.filter((r: ReportRow) => r.post_id === post.id)
                 const reportCount = postReports.length
                 const reportedUserId = postReports[0]?.reported_user_id
-                const reportedUser = userList.find(u => u.id === reportedUserId)
+                const reportedUser = userList.find((u: UserRow) => u.id === reportedUserId)
                 return (
                   <div key={post.id} className="rounded-xl p-4"
                     style={{ background: '#1a0a0a', border: '1px solid #7f1d1d' }}>
@@ -145,7 +189,7 @@ export default async function AdminPage() {
               ⚡ Warned users
             </h2>
             <div className="flex flex-col gap-2">
-              {warnedUsers.map(u => (
+              {warnedUsers.map((u: UserRow) => (
                 <div key={u.id} className="rounded-xl p-4 flex items-center justify-between"
                   style={{ background: '#1a1400', border: '1px solid #78350f' }}>
                   <div>
@@ -171,7 +215,7 @@ export default async function AdminPage() {
               🚫 Banned users
             </h2>
             <div className="flex flex-col gap-2">
-              {bannedUsers.map(u => (
+              {bannedUsers.map((u: UserRow) => (
                 <div key={u.id} className="rounded-xl p-4 flex items-center justify-between"
                   style={{ background: '#1a0a0a', border: '1px solid #7f1d1d' }}>
                   <div>
@@ -198,7 +242,7 @@ export default async function AdminPage() {
             All posts
           </h2>
           <div className="flex flex-col gap-2">
-            {postList.map(post => (
+            {postList.map((post: PostRow) => (
               <div key={post.id} className="rounded-xl p-4 flex items-center justify-between"
                 style={{
                   background: '#0d1225',
@@ -240,7 +284,7 @@ export default async function AdminPage() {
             <p className="text-xs" style={{ color: '#4a5068' }}>No suggestions yet.</p>
           ) : (
             <div className="flex flex-col gap-2">
-              {suggestionList.map(s => (
+              {suggestionList.map((s: SuggestionRow) => (
                 <div key={s.id} className="rounded-xl p-4"
                   style={{ background: '#0d1225', border: '1px solid rgba(255,255,255,0.06)' }}>
                   <p className="text-sm" style={{ color: '#f0f2f5' }}>{s.suggestion}</p>

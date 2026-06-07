@@ -7,8 +7,9 @@ import { z } from 'zod'
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL!
 
 const schema = z.object({
-  action: z.enum(['warn', 'ban', 'unban']),
-  reportedUserId: z.string().uuid(),
+  action: z.enum(['warn', 'ban', 'unban', 'delete']),
+  reportedUserId: z.string().uuid().optional(),
+  postId: z.string().uuid().optional(),
   banReason: z.string().optional(),
 })
 
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  const { action, reportedUserId, banReason } = parsed.data
+  const { action, reportedUserId, postId, banReason } = parsed.data
 
   const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -43,6 +44,7 @@ export async function POST(req: Request) {
   )
 
   if (action === 'warn') {
+    if (!reportedUserId) return NextResponse.json({ error: 'Missing reportedUserId' }, { status: 400 })
     await admin.from('users').update({ warning_issued: true }).eq('id', reportedUserId)
     await admin.from('notifications').insert({
       user_id: reportedUserId,
@@ -50,6 +52,7 @@ export async function POST(req: Request) {
       is_read: false,
     })
   } else if (action === 'ban') {
+    if (!reportedUserId) return NextResponse.json({ error: 'Missing reportedUserId' }, { status: 400 })
     await admin.from('users').update({ is_banned: true, ban_reason: banReason ?? 'Violation' }).eq('id', reportedUserId)
     await admin.from('notifications').insert({
       user_id: reportedUserId,
@@ -57,7 +60,12 @@ export async function POST(req: Request) {
       is_read: false,
     })
   } else if (action === 'unban') {
+    if (!reportedUserId) return NextResponse.json({ error: 'Missing reportedUserId' }, { status: 400 })
     await admin.from('users').update({ is_banned: false, ban_reason: null, warning_issued: false }).eq('id', reportedUserId)
+  } else if (action === 'delete') {
+    if (!postId) return NextResponse.json({ error: 'Missing postId' }, { status: 400 })
+    const { error: deleteError } = await admin.from('posts').delete().eq('id', postId)
+    if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 })
   }
 
   return NextResponse.json({ success: true })

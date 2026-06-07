@@ -1,5 +1,6 @@
 'use client'
 
+import Tutorial from '@/app/components/Tutorial'
 import { useEffect, useState } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import Link from 'next/link'
@@ -42,6 +43,8 @@ export default function Dashboard() {
   const [suggestion, setSuggestion] = useState('')
   const [suggestionSent, setSuggestionSent] = useState(false)
   const [suggestionLoading, setSuggestionLoading] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -56,7 +59,6 @@ export default function Dashboard() {
       .order('created_at', { ascending: false })
     const rawPosts = (data as Post[]) ?? []
 
-    // generate signed URLs for all post images
     const withSigned = await Promise.all(rawPosts.map(async (p) => {
       if (!p.photo_url) return p
       const { data: signed } = await supabase.storage
@@ -74,6 +76,7 @@ export default function Dashboard() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { window.location.href = '/login'; return }
       setCurrentUserId(user.id)
+      if (user.email === '2330427@kiit.ac.in') setIsAdmin(true)
       fetchPosts()
     }
     checkAuth()
@@ -94,8 +97,6 @@ export default function Dashboard() {
     return true
   })
 
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
-
   const total = filtered.length
   const lost = filtered.filter(p => p.type === 'lost').length
   const found = filtered.filter(p => p.type === 'found').length
@@ -104,7 +105,6 @@ export default function Dashboard() {
     <main className="relative min-h-screen" style={{ background: '#050a15' }}>
       <div className="px-4 py-8">
         <div className="max-w-5xl mx-auto">
-          {/* Stats skeleton */}
           <div className="grid grid-cols-3 gap-3 mb-8">
             {[1, 2, 3].map(i => (
               <div key={i} className="rounded-xl p-4 animate-pulse"
@@ -115,7 +115,6 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-          {/* Header skeleton */}
           <div className="mb-5">
             <div className="h-6 w-36 rounded mb-2 animate-pulse" style={{ background: '#111830' }} />
             <div className="h-3 w-48 rounded mb-4 animate-pulse" style={{ background: '#111830' }} />
@@ -125,7 +124,6 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
-          {/* Cards skeleton */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[1, 2, 3].map(i => (
               <div key={i} className="rounded-2xl overflow-hidden animate-pulse"
@@ -146,6 +144,7 @@ export default function Dashboard() {
 
   return (
     <main className="relative min-h-screen overflow-hidden" style={{ background: '#050a15' }}>
+      <Tutorial userId={currentUserId} />
 
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-[-20%] right-[-15%] w-[600px] h-[600px] rounded-full opacity-[0.07]"
@@ -167,7 +166,6 @@ export default function Dashboard() {
       <div className="relative z-10 px-4 py-8">
         <div className="max-w-5xl mx-auto">
 
-          {/* Stats */}
           <div className="grid grid-cols-3 gap-3 mb-8">
             {[
               { label: 'Active Posts', value: total, color: '#f0f2f5', sub: 'live right now' },
@@ -189,17 +187,15 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* Header + filters */}
           <div className="mb-5">
             <div className="flex items-center justify-between">
               <h1 className="text-xl font-bold" style={{ color: '#f0f2f5' }}>Recent Posts</h1>
-              <RefreshButton />
+              <RefreshButton onRefresh={fetchPosts} />
             </div>
             <p className="text-sm mt-1 mb-4" style={{ color: '#8b92a5' }}>
               Active listings from campus
             </p>
 
-            {/* Search */}
             <div className="relative mb-3">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#4a5068' }}>🔍</span>
               <input
@@ -207,6 +203,7 @@ export default function Dashboard() {
                 placeholder="Search by title, description, location..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
+                data-tutorial="search"
                 className="w-full pl-9 pr-4 py-2 rounded-lg text-sm outline-none"
                 style={{
                   background: 'rgba(13,18,37,0.8)',
@@ -221,8 +218,7 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Type filter */}
-            <div className="flex gap-2 mb-3">
+            <div className="flex gap-2 mb-3" data-tutorial="typefilter">
               {(['all', 'lost', 'found'] as const).map(t => (
                 <button key={t} onClick={() => setSelectedType(t)}
                   className="px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all"
@@ -239,7 +235,6 @@ export default function Dashboard() {
               ))}
             </div>
 
-            {/* Category filter */}
             <div className="flex gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
               {CATEGORIES.map(cat => (
                 <button key={cat} onClick={() => setSelectedCategory(cat)}
@@ -254,7 +249,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Empty state */}
           {total === 0 && (
             <div className="flex flex-col items-center justify-center py-24 text-center">
               <p className="text-4xl mb-4">📭</p>
@@ -279,7 +273,6 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map((post) => (
               <Link key={post.id} href={`/posts/${post.id}`}>
@@ -354,7 +347,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-          {/* Suggestion box */}
+        {!isAdmin && (
           <div className="mt-12 max-w-xl mx-auto">
             <div className="rounded-2xl p-6"
               style={{ background: 'rgba(13,18,37,0.6)', border: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(12px)' }}>
@@ -396,8 +389,10 @@ export default function Dashboard() {
               )}
             </div>
           </div>
+        )}
 
       </div>
     </main>
+    
   )
 }

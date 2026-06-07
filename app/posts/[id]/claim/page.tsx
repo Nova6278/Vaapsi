@@ -17,7 +17,6 @@ export default function ClaimPost() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [post, setPost] = useState<{ title: string; location: string; type: string; verification_question: string; user_id: string } | null>(null)
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [isOwnPost, setIsOwnPost] = useState(false)
   const [alreadyClaimed, setAlreadyClaimed] = useState(false)
   const [proofFile, setProofFile] = useState<File | null>(null)
@@ -35,7 +34,6 @@ export default function ClaimPost() {
     ]).then(async ([{ data: postData }, { data: { user } }]) => {
       if (!user) { window.location.href = '/login'; return }
       setPost(postData)
-      setCurrentUserId(user?.id ?? null)
       if (postData && user && postData.user_id === user.id) {
         setIsOwnPost(true)
         return
@@ -161,11 +159,12 @@ export default function ClaimPost() {
     }
 
     if (post) {
-      await createNotificationClient({
-        userId: post.user_id,
-        message: `Someone claimed your post: ${post.title}`,
-        claimId: claim.id,
-      })
+     await createNotificationClient({
+  userId: post.user_id,
+  message: `Someone claimed your post: ${post.title}`,
+  claimId: claim.id,
+  postId,
+})
     }
 
     router.push('/dashboard')

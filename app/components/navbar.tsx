@@ -84,7 +84,11 @@ export default function Navbar() {
             {/* Desktop text links — hidden on mobile */}
             <div className="hidden sm:flex items-center gap-5">
               {navLinks.map((link) => (
-                <Link key={link.href} href={link.href} className="text-sm transition-colors"
+                <Link key={link.href} href={link.href}
+                  {...(link.href === '/posts/new' ? { 'data-tutorial': 'newpost' } : {})}
+                  {...(link.href === '/my-posts' ? { 'data-tutorial': 'myposts' } : {})}
+                  {...(link.href === '/my-claims' ? { 'data-tutorial': 'myclaims' } : {})}
+                  className="text-sm transition-colors"
                   style={{ color: pathname === link.href ? '#f0f2f5' : '#8b92a5' }}
                   onMouseEnter={e => (e.currentTarget.style.color = '#f0f2f5')}
                   onMouseLeave={e => (e.currentTarget.style.color = pathname === link.href ? '#f0f2f5' : '#8b92a5')}>
@@ -94,7 +98,7 @@ export default function Navbar() {
             </div>
 
             {/* Handoff icon */}
-            <Link href="/handoffs" className="handoff-link relative flex items-center" aria-label="Handoffs">
+            <Link href="/handoffs" data-tutorial="handoff" className="handoff-link relative flex items-center" aria-label="Handoffs">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                 strokeWidth={1.5} stroke="#185FA5" className="handoff-icon w-6 h-6 transition-transform"
                 style={{ transformOrigin: 'center' }}>
@@ -110,7 +114,7 @@ export default function Navbar() {
             </Link>
 
             {/* Bell icon */}
-            <Link href="/notifications" className="bell-link relative flex items-center" aria-label="Notifications">
+            <Link href="/notifications" data-tutorial="bell" className="bell-link relative flex items-center" aria-label="Notifications">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                 strokeWidth={1.5} stroke="#185FA5" className="bell-icon w-6 h-6 transition-colors"
                 style={{ transformOrigin: 'top center' }}>

@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useParams, useRouter } from "next/navigation";
 import { sanitize } from "@/lib/sanitize";
+import Link from "next/link";
 
 interface HandoffRow {
   id: string;
@@ -23,10 +24,11 @@ interface MessageRow {
   image_url: string | null;
   created_at: string;
   is_read: boolean;
+  isOptimistic?: boolean;
 }
 
 const NOTIF_SOUND_B64 =
-  "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVYGAACAgICAgICAgICAgICAgICAgICAgICAgICAf3+AgYGBgIB/f35+fn5/f4CAgYGBgYGAgH9+fX19fn5/gIGBgoKCgYF/fn18fH1+f4CBgoODgoKBf358fHx9fn+AgYKDg4OCgX9+fHt8fX5/gIGCg4SDgoF/fnx7e3x+f4CBgoOEg4KBf357e3t8fX+AgYKDhIOCgX9+fHt7fH1/gIGCg4SDgoF/fnx7e3x9f4CBgoOEg4OBf358e3t8fX+AgYKDhIOCgX9+fHt7fH1/gIGCg4SDg4F/fn17e3x9f4CBgoOEhIOBgH58e3t8fX+AgYKDhISDgYB+fHt7fH1/gIGCg4SEg4GAfnx7e3x9f4CBgoOEhIOBgH58e3t8fX+AgYKDhISDgYB+fHt7fH5/gIGCg4SEg4GAfnx7fHx9f4CBgoOEhIOBgH58e3x8fX+AgYKDhISDgYB+fHt8fH1/gIGCg4SEg4GAfn17fHx9f4CBgoOEhIOBgH59e3x8fX+AgYKDhISDgYB+fXt8fH1/gIGCg4SEg4KAfn17fHx9f4CBgoOEhIOCgH59e3x8fX+AgYKDhISDgoB+fXt8fH5/gIGCg4SEg4KAfn17fHx+f4CBgoOEhIOCgH59fHx8fn+AgYKDhISDgoB+fXx8fH5/gIGCg4SEg4KAfn18fHx+f4CBgoOEhIOCgH5+fHx9fn+AgYKDhISDgoB/fn18fH1+f4CBgoOEhIOCgH9+fXx9fn+AgYKDhISDgoB/fn18fX5/gIGCg4SEg4KAf359fH1+f4CBgoOEg4OCgH9+fX19fn+AgYKDhIODgoB/fn19fX5/gIGCg4SDg4KAf35+fX1+f4CBgoOEg4OCgH9/fn19fn+AgYKDhIODgoCAf35+fX5/gIGCg4SDg4KBAH9+fn5+f4CBgoOEg4OCgYB/fn5+fn+AgYKDg4ODgoGAf39+fn5/gIGCg4ODg4KBgH9/fn5+f4CBgoODg4OCgYCAf39+fn+AgIGCg4ODg4KBgIB/f39/f4CAgYKDg4ODgoGAgH9/f39/gICBgoODg4OCgYCAf39/f3+AgIGCg4ODgoKBgICAf39/f4CAgYKDg4OCgoGAgIB/f39/gICBgoKDg4KCgYCAgH+Af3+AgIGCgoODgoKBgICAgH+Af4CAgYKCg4OCgoGBgICAgICAgICAgYKCg4OCgoGBgICAgICAgICAgYKCgoOCgoKBgYCAgICAgICAgIGCgoKDgoKCgYGAgICAgICAgICBgoKCg4KCgoGBgICAgICAgICAgYGCgoKCgoKBgYGAgICAgICAgICBgYKCgoKCgoGBgYCAgICAgICAgIGBgoKCgoKCgYGBgICAgICAgICAgYGBgoKCgoKBgYGAgICAgICAgICBgYGCgoKCgoGBgYCAgICAgICAgIGBgYKCgoKCgYGBgICAgICAgICAgYGBgoKCgoGBgYGAgICAgICAgICBgYGBgoKCgoGBgYGAgICAgICAgICBgYGBgoKCgYGBgYCAgICAgICAgICBgYGBgoKCgYGBgYCAgICAgICAgICBgYGBgoKCgYGBgYCAgICAgICAgICBgYGBgoKCgYGBgYCAgICAgICAgICBgYGBgYKCgYGBgYCAgICAgICAgICBgYGBgYKCgYGBgYGAgICAgICAgICBgYGBgYKCgYGBgYGAgICAgICAgICBgYGBgYGCgYGBgYGAgICAgICAgICAgYGBgYGCgYGBgYGAgICAgICAgICAgYGBgYGBgYGBgYGAgICAgICAgICAgYGBgYGBgYGBgYGAgICAgICAgICAgYGBgYGBgYGBgYGAgICAgICAgICAgYGBgYGBgYGBgYGAgICAgICAgICAgYGBgYGBgYGBgYCAgICAgICAgICAgYGBgYGBgYGBgYCAgICAgICAgICAgYGBgYGBgYGBgYCAgICAgICAgICAgIGBgYGBgYGBgYCAgICAgICAgICAgIGBgYGBgYGBgYCAgICAgICAgICAgIGBgYGBgYGBgICAgICAgICAgICAgIGBgYGBgYGBgICAgICAgICAgICAgICBgYGBgYGBgICAgICAgICAgICAgICBgYGBgYGBgICAgICAgICAgICAgICBgYGBgYGAgICAgICAgICAgICAgICAgYGBgYGAgICAgICAgICAgICAgICAgYGBgYGAgICAgICAgICAgICAgICAgYGBgYGAgICAgICAgICAgICAgICAgIGBgYGAgICAgICAgICAgICAgICAgICBgYGAgICAgICAgICAgA==";
+  "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVYGAACAgICAgICAgICAgICAgICAgICAgICAgICAf3+AgYGBgIB/f35+fn5/f4CAgYGBgYGAgH9+fX19fn5/gIGBgoKCgYF/fn18fH1+f4CBgoODgoKBf358fHx9fn+AgYKDg4OCgX9+fHt8fX5/gIGCg4SDgoF/fnx7e3x+f4CBgoOEg4KBf357e3t8fX+AgYKDhIOCgX9+fHt7fH1/gIGCg4SDgoF/fnx7e3x9f4CBgoOEg4OBf358e3t8fX+AgYKDhISDgYB+fHt7fH1/gIGCg4SEg4GAfnx7e3x9f4CBgoOEhIOBgH58e3t8fX+AgYKDhISDgYB+fHt7fH1/gIGCg4SEg4GAfnx7e3x9f4CBgoOEhIOBgH58e3t8fX+AgYKDhISDgYB+fHt8fH1/gIGCg4SEg4GAfn17fHx9f4CBgoOEhIOBgH59e3x8fX+AgYKDhISDgYB+fXt8fH1/gIGCg4SEg4KAfn17fHx9f4CBgoOEhIOCgH59e3x8fX+AgYKDhISDgoB+fXt8fH5/gIGCg4SEg4KAfn17fHx+f4CBgoOEhIOCgH59fHx8fn+AgYKDhISDgoB+fXx8fH5/gIGCg4SEg4KAfn18fHx+f4CBgoOEhIOCgH5+fHx9fn+AgYKDhISDgoB/fn18fH1+f4CBgoOEhIOCgH9+fXx9fn+AgYKDhISDgoB/fn18fX5/gIGCg4SEg4KAf359fH1+f4CBgoOEg4OCgH9+fX19fn+AgYKDhIODgoB/fn19fX5/gIGCg4SDg4KAf35+fX1+f4CBgoOEg4OCgH9/fn19fn+AgYKDhIODgoCAf35+fX5/gIGCg4SDg4KBAH9+fn5+f4CBgoOEg4OCgYB/fn5+fn+AgYKDg4ODgoGAf39+fn5/gIGCg4ODg4KBgH9/fn5+f4CBgoODg4OCgYCAf39+fn+AgIGCg4ODg4KBgIB/f39/f4CAgYKDg4ODgoGAgH9/f39/gICBgoODg4OCgYCAf39/f3+AgIGCg4ODgoKBgICAf39/f4CAgYKDg4OCgoGAgIB/f39/gICBgoKDg4KCgYCAgH+Af3+AgIGCgoODgoKBgICAgH+Af4CAgYKCg4OCgoGBgICAgICAgICAgYKCg4OCgoGBgICAgICAgICAgYKCgoOCgoKBgYCAgICAgICAgIGCgoKDgoKCgYGAgICAgICAgICBgoKCg4KCgoGBgICAgICAgICAgYGCgoKCgoKBgYGAgICAgICAgICBgYKCgoKCgoGBgYCAgICAgICAgIGBgoKCgoKCgYGBgICAgICAgICAgYGBgoKCgoKBgYGAgICAgICAgICBgYGCgoKCgoGBgYCAgICAgICAgIGBgYKCgoKCgYGBgICAgICAgICAgYGBgoKCgoGBgYGAgICAgICAgICBgYGBgoKCgYGBgYCAgICAgICAgICBgYGBgoKCgYGBgYCAgICAgICAgICBgYGBgoKCgYGBgYCAgICAgICAgICBgYGBgoKCgYGBgYCAgICAgICAgICBgYGBgYKCgYGBgYCAgICAgICAgICBgYGBgYKCgYGBgYGAgICAgICAgICBgYGBgYKCgYGBgYGAgICAgICAgICBgYGBgYGCgYGBgYGAgICAgICAgICAgYGBgYGCgYGBgYGAgICAgICAgICAgYGBgYGBgYGBgYGAgICAgICAgICAgYGBgYGBgYGBgYGAgICAgICAgICAgYGBgYGBgYGBgYGAgICAgICAgICAgYGBgYGBgYGBgYGAgICAgICAgICAgYGBgYGBgYGBgYCAgICAgICAgICAgYGBgYGBgYGBgYCAgICAgICAgICAgYGBgYGBgYGBgYCAgICAgICAgICAgIGBgYGBgYGBgYCAgICAgICAgICAgIGBgYGBgYGBgYCAgICAgICAgICAgIGBgYGBgYGBgICAgICAgICAgICAgIGBgYGBgYGBgICAgICAgICAgICAgICBgYGBgYGBgICAgICAgICAgICAgICBgYGBgYGBgICAgICAgICAgICAgICBgYGBgYGAgICAgICAgICAgICAgICAgYGBgYGAgICAgICAgICAgICAgICAgYGBgYGAgICAgICAgICAgICAgICAgYGBgYGAgICAgICAgICAgICAgICAgIGBgYGAgICAgICAgICAgICAgICAgICBgYGAgICAgICAgICAgA==";
 
 export default function HandoffChat() {
   const params = useParams();
@@ -35,6 +37,7 @@ export default function HandoffChat() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const prevMsgCountRef = useRef(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const prevHandoffStatusRef = useRef<string | null>(null);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [newMsg, setNewMsg] = useState("");
   const [handoff, setHandoff] = useState<HandoffRow | null>(null);
@@ -42,6 +45,7 @@ export default function HandoffChat() {
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [showLostPostPrompt, setShowLostPostPrompt] = useState(false);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">("default");
 
   const supabase = createBrowserClient(
@@ -83,6 +87,7 @@ export default function HandoffChat() {
         return;
       }
       setHandoff(h as HandoffRow);
+      prevHandoffStatusRef.current = h.status;
 
       const { data: p } = await supabase
         .from("posts")
@@ -145,11 +150,35 @@ export default function HandoffChat() {
       if (polling) return;
       polling = true;
       try {
-        const { data: msgs } = await supabase
-          .from("handoff_messages")
-          .select("*")
-          .eq("handoff_id", handoffId)
-          .order("created_at", { ascending: true });
+        const [{ data: msgs }, { data: updatedHandoff }] = await Promise.all([
+          supabase
+            .from("handoff_messages")
+            .select("*")
+            .eq("handoff_id", handoffId)
+            .order("created_at", { ascending: true }),
+          supabase
+            .from("handoffs")
+            .select("*")
+            .eq("id", handoffId)
+            .single(),
+        ]);
+
+        if (updatedHandoff) {
+  const wasActive = prevHandoffStatusRef.current === "active";
+  const nowComplete = updatedHandoff.status === "completed";
+  prevHandoffStatusRef.current = updatedHandoff.status;
+  setHandoff(updatedHandoff as HandoffRow);
+
+  if (wasActive && nowComplete && userId) {
+    const { data: lostPosts } = await supabase
+      .from("posts")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("type", "lost")
+      .eq("status", "active")
+    if (lostPosts && lostPosts.length > 0) setShowLostPostPrompt(true);
+  }
+}
 
         if (msgs) {
           setMessages(msgs as MessageRow[]);
@@ -202,6 +231,7 @@ export default function HandoffChat() {
       image_url: null,
       created_at: new Date().toISOString(),
       is_read: false,
+      isOptimistic: true,
     };
     setMessages((prev) => {
       const updated = [...prev, optimisticMsg];
@@ -238,7 +268,17 @@ export default function HandoffChat() {
       return;
     }
 
-    setHandoff(handoff ? { ...handoff, status: "completed" } : null);
+    setHandoff(prev => prev ? { ...prev, status: "completed" } : null);
+    if (userId) {
+  const { data: lostPosts } = await supabase
+    .from("posts")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("type", "lost")
+    .eq("status", "active")
+    
+  if (lostPosts && lostPosts.length > 0) setShowLostPostPrompt(true);
+}
   };
 
   const myMsgCount = messages.filter((m) => m.sender_id === userId).length;
@@ -320,11 +360,22 @@ export default function HandoffChat() {
                     : { background: '#0d1225', border: '1px solid rgba(255,255,255,0.06)', borderBottomLeftRadius: '4px' }
                   }>
                   <p className="text-sm" style={{ color: '#f0f2f5' }}>{msg.content}</p>
-                  <p className="text-[10px] mt-1" style={{ color: isMine ? 'rgba(255,255,255,0.5)' : '#4a5068' }}>
-                    {new Date(msg.created_at).toLocaleString('en-IN', {
-                      hour: '2-digit', minute: '2-digit', hour12: true
-                    })}
-                  </p>
+                  <div className="flex items-center justify-end gap-1 mt-1">
+                    <p className="text-[10px]" style={{ color: isMine ? 'rgba(255,255,255,0.5)' : '#4a5068' }}>
+                      {new Date(msg.created_at).toLocaleString('en-IN', {
+                        hour: '2-digit', minute: '2-digit', hour12: true
+                      })}
+                    </p>
+                    {isMine && (
+                      <span style={{
+                        fontSize: '10px',
+                        lineHeight: 1,
+                        color: !msg.isOptimistic && msg.is_read ? '#185FA5' : 'rgba(255,255,255,0.4)',
+                      }}>
+                        {msg.isOptimistic ? '✓' : '✓✓'}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -356,12 +407,30 @@ export default function HandoffChat() {
           </div>
         </div>
       ) : (
-        <div className="sticky bottom-0 px-4 py-4 text-center"
-          style={{ background: 'rgba(5,10,21,0.95)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <p className="text-xs" style={{ color: '#4a5068' }}>
-            This handoff is complete. Item has been returned. 🎉
-          </p>
-        </div>
+        <div className="sticky bottom-0 px-4 py-4"
+  style={{ background: 'rgba(5,10,21,0.95)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+  <div className="max-w-xl mx-auto">
+    <p className="text-xs text-center mb-3" style={{ color: '#4a5068' }}>
+      This handoff is complete. Item has been returned. 🎉
+    </p>
+    {showLostPostPrompt && (
+      <div className="rounded-xl p-4"
+        style={{ background: '#0d1225', border: '1px solid rgba(212,175,55,0.3)' }}>
+        <p className="text-sm font-semibold mb-1" style={{ color: '#D4AF37' }}>
+          🎉 Got your item back?
+        </p>
+        <p className="text-xs mb-3" style={{ color: '#8b92a5' }}>
+          You still have active Lost posts. If this handoff resolved one of them, mark it as resolved so others know.
+        </p>
+        <Link href="/my-posts"
+  className="inline-block px-4 py-2 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90"
+  style={{ background: 'rgba(212,175,55,0.15)', color: '#D4AF37', border: '1px solid rgba(212,175,55,0.3)' }}>
+  View my Lost posts →
+</Link>
+      </div>
+    )}
+  </div>
+</div>
       )}
     </main>
   );

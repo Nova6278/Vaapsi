@@ -38,6 +38,12 @@ body {
   90%  { transform: rotate(1deg); }
   100% { transform: rotate(0deg); }
 }
+
+@keyframes spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 .bell-link:hover .bell-icon {
   animation: bell-ring 0.6s ease;
   stroke: #185FA5;

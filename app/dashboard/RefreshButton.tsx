@@ -1,16 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export default function RefreshButton() {
-  const router = useRouter();
+export default function RefreshButton({ onRefresh }: { onRefresh: () => void }) {
   const [spinning, setSpinning] = useState(false);
 
   const handleRefresh = () => {
+    if (spinning) return;
     setSpinning(true);
-    router.refresh();
-    setTimeout(() => setSpinning(false), 600);
+    onRefresh();
+    setTimeout(() => setSpinning(false), 1000);
   };
 
   return (
@@ -28,8 +27,7 @@ export default function RefreshButton() {
         stroke="#8b92a5"
         className="w-4 h-4"
         style={{
-          transition: "transform 0.6s ease",
-          transform: spinning ? "rotate(360deg)" : "rotate(0deg)",
+          animation: spinning ? "spin 1s linear forwards" : "none",
         }}
       >
         <path

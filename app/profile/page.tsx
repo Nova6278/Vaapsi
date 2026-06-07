@@ -31,6 +31,8 @@ export default async function ProfilePage() {
     day: 'numeric', month: 'long', year: 'numeric',
   })
 
+  const displayName = user.user_metadata?.name || user.email
+
   const statCard = (label: string, value: number, color: string) => (
     <div className="rounded-xl p-4 text-center"
       style={{ background: '#111830', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -50,10 +52,10 @@ export default async function ProfilePage() {
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold"
               style={{ background: '#185FA5', color: '#fff' }}>
-              {user.email?.charAt(0).toUpperCase()}
+              {displayName?.charAt(0).toUpperCase()}
             </div>
             <div>
-              <h1 className="text-lg font-bold" style={{ color: '#f0f2f5' }}>{user.email}</h1>
+              <h1 className="text-lg font-bold" style={{ color: '#f0f2f5' }}>{displayName}</h1>
               <p className="text-xs mt-1" style={{ color: '#8b92a5' }}>
                 Member since {memberSince}
               </p>
