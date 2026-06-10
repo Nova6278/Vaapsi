@@ -144,9 +144,11 @@ export async function middleware(req: NextRequest) {
   if (path.startsWith('/api/')) {
     const origin = req.headers.get('origin')
     const allowedOrigins = [
-      'https://vaapsi.vercel.app',
-      ...(process.env.NODE_ENV === 'development' ? ['http://localhost:3000'] : []),
-    ]
+  'https://vaapsi.vercel.app',
+  'https://vaapsi.live',
+  'https://www.vaapsi.live',
+  ...(process.env.NODE_ENV === 'development' ? ['http://localhost:3000'] : []),
+]
 
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       if (!origin || !allowedOrigins.includes(origin)) {
