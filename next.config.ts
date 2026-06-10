@@ -27,11 +27,11 @@ const nextConfig: NextConfig = {
           {
             key: "Content-Security-Policy",
             value: [
-              "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live",
+              "default-src 'self' https://vaapsi.live https://www.vaapsi.live",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://*.vercel-insights.com",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https://*.supabase.co",
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.resend.com",
+              "connect-src 'self' https://vaapsi.live https://www.vaapsi.live https://*.supabase.co wss://*.supabase.co https://api.resend.com https://*.vercel-insights.com",
               "font-src 'self'",
               "frame-src 'none'",
               "object-src 'none'",
