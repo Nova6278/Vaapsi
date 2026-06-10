@@ -97,14 +97,14 @@ export async function POST(req: NextRequest) {
     const sendEmail = async (attempt = 1): Promise<void> => {
       try {
         await resend.emails.send({
-          from: "Vaapsi <onboarding@resend.dev>",
+          from: "Vaapsi <noreply@vaapsi.live>",
           to: userData.user.email!,
           subject: "New notification from Vaapsi",
           html: `
             <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
               <h2 style="color: #111;">Vaapsi — Lost & Found</h2>
               <p style="font-size: 16px; color: #333;">${safeMessage}</p>
-              <a href="https://vaapsi.vercel.app/notifications"
+              <a href="https://vaapsi.live/notifications"
                  style="display: inline-block; margin-top: 16px; padding: 10px 20px;
                         background: #000; color: #fff; border-radius: 8px;
                         text-decoration: none; font-weight: 600;">
