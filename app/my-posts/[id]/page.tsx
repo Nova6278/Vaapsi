@@ -37,10 +37,7 @@ export default function PostClaims() {
   useEffect(() => {
     const fetchData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push("/login");
-        return;
-      }
+      if (!user) { router.push("/login"); return; }
 
       const { data: postData } = await supabase
         .from("posts")
@@ -68,13 +65,10 @@ export default function PostClaims() {
           const { data } = await supabase.storage
             .from("claim-proofs")
             .createSignedUrl(claim.proof_image_url, 3600);
-          if (data?.signedUrl) {
-            urls[claim.id] = data.signedUrl;
-          }
+          if (data?.signedUrl) urls[claim.id] = data.signedUrl;
         }
       }
       setProofUrls(urls);
-
       setLoading(false);
     };
     fetchData();
@@ -82,47 +76,45 @@ export default function PostClaims() {
   }, [postId]);
 
   const updateClaim = async (claimId: string, status: "confirmed" | "rejected") => {
-    // #9 — block if already confirmed
     if (status === "confirmed") {
-      const alreadyConfirmed = claims.some((c) => c.status === "confirmed")
-      if (alreadyConfirmed) {
-        alert("A claim is already confirmed for this post.")
-        return
-      }
+      const alreadyConfirmed = claims.some((c) => c.status === "confirmed");
+      if (alreadyConfirmed) { alert("A claim is already confirmed for this post."); return; }
     }
-
-    await supabase.from("claims").update({ status }).eq("id", claimId);
-    setClaims(claims.map((c) => (c.id === claimId ? { ...c, status } : c)));
 
     const claim = claims.find((c) => c.id === claimId);
-    if (claim && post) {
-      // #10 — for confirmed, create handoff FIRST, rollback if it fails
-      if (status === "confirmed") {
-        const res = await fetch("/api/handoff", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ postId, claimantId: claim.claimant_id }),
-        });
-        if (!res.ok) {
-          // rollback claim status
-          await supabase.from("claims").update({ status: "pending" }).eq("id", claimId);
-          setClaims(claims.map((c) => (c.id === claimId ? { ...c, status: "pending" } : c)));
-          alert("Failed to create handoff. Please try again.");
-          return;
-        }
-        const handoffData = await res.json();
-        setToastHandoffId(handoffData.handoffId ?? null);
-      }
+    if (!claim || !post) return;
 
-      await createNotificationClient({
-  userId: claim.claimant_id,
-  message: status === "confirmed"
-    ? `Your claim for "${post.title}" was confirmed! 🎉`
-    : `Your claim for "${post.title}" was rejected.`,
-  claimId,
-  postId,
-});
+    if (status === "confirmed") {
+      const { error: updateError } = await supabase.from("claims").update({ status }).eq("id", claimId);
+      if (updateError) { alert("Failed to confirm claim."); return; }
+      setClaims(claims.map((c) => (c.id === claimId ? { ...c, status } : c)));
+
+      const res = await fetch("/api/handoff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId, claimantId: claim.claimant_id }),
+      });
+      if (!res.ok) {
+        await supabase.from("claims").update({ status: "pending" }).eq("id", claimId);
+        setClaims(claims.map((c) => (c.id === claimId ? { ...c, status: "pending" } : c)));
+        alert("Failed to create handoff. Please try again.");
+        return;
+      }
+      const handoffData = await res.json();
+      setToastHandoffId(handoffData.handoffId ?? null);
+    } else {
+      await supabase.from("claims").update({ status }).eq("id", claimId);
+      setClaims(claims.map((c) => (c.id === claimId ? { ...c, status } : c)));
     }
+
+    await createNotificationClient({
+      userId: claim.claimant_id,
+      message: status === "confirmed"
+        ? `Your claim for "${post.title}" was confirmed! 🎉`
+        : `Your claim for "${post.title}" was rejected.`,
+      claimId,
+      postId,
+    });
   };
 
   useEffect(() => {
@@ -135,9 +127,7 @@ export default function PostClaims() {
     const { data } = await supabase.storage
       .from("claim-proofs")
       .createSignedUrl(path, 3600);
-    if (data?.signedUrl) {
-      setProofUrls(prev => ({ ...prev, [claimId]: data.signedUrl }));
-    }
+    if (data?.signedUrl) setProofUrls(prev => ({ ...prev, [claimId]: data.signedUrl }));
   };
 
   if (loading) return (
@@ -152,9 +142,7 @@ export default function PostClaims() {
         style={{ background: '#0d1225', border: '1px solid rgba(255,255,255,0.06)' }}>
         <p className="text-4xl mb-4">🚫</p>
         <h1 className="text-lg font-bold mb-2" style={{ color: '#f0f2f5' }}>Access denied</h1>
-        <p className="text-sm mb-6" style={{ color: '#8b92a5' }}>
-          You can only view claims on your own posts.
-        </p>
+        <p className="text-sm mb-6" style={{ color: '#8b92a5' }}>You can only view claims on your own posts.</p>
         <Link href="/my-posts"
           className="inline-block py-2.5 px-6 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
           style={{ background: '#185FA5' }}>
@@ -181,9 +169,7 @@ export default function PostClaims() {
               </span>
             )}
           </div>
-          <h1 className="text-xl font-bold" style={{ color: '#f0f2f5' }}>
-            {post?.title ?? 'Claims'}
-          </h1>
+          <h1 className="text-xl font-bold" style={{ color: '#f0f2f5' }}>{post?.title ?? 'Claims'}</h1>
           <p className="text-sm mt-1" style={{ color: '#8b92a5' }}>
             {claims.length} {isLostPost ? 'response' : 'claim'}{claims.length !== 1 ? 's' : ''} submitted
           </p>
@@ -237,15 +223,11 @@ export default function PostClaims() {
                       height={400}
                       className="w-full max-h-64 object-cover cursor-pointer transition-opacity hover:opacity-90"
                       onClick={() => setLightboxUrl(proofUrls[claim.id])}
-                      onError={() => {
-                        if (claim.proof_image_url) refreshProofUrl(claim.id, claim.proof_image_url)
-                      }}
+                      onError={() => { if (claim.proof_image_url) refreshProofUrl(claim.id, claim.proof_image_url); }}
                       unoptimized
                     />
                   </div>
-                  <p className="text-[10px] mt-1" style={{ color: '#4a5068' }}>
-                    Click image to view full size
-                  </p>
+                  <p className="text-[10px] mt-1" style={{ color: '#4a5068' }}>Click image to view full size</p>
                 </div>
               )}
 
@@ -273,60 +255,35 @@ export default function PostClaims() {
       </div>
 
       {toastHandoffId && (
-        <div
-          className="flex items-center gap-3"
+        <div className="flex items-center gap-3"
           style={{
-            position: "fixed",
-            bottom: 24,
-            left: "50%",
-            transform: "translateX(-50%)",
-            maxWidth: "384px",
-            width: "calc(100% - 32px)",
-            background: "#0d1225",
-            border: "1px solid #14532d",
-            borderRadius: 16,
-            padding: "16px 20px",
-            zIndex: 200,
-            boxShadow: "0 16px 48px rgba(0,0,0,0.5)",
-            animation: "slideUpToast 0.3s ease-out",
-          }}
-        >
+            position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
+            maxWidth: "384px", width: "calc(100% - 32px)", background: "#0d1225",
+            border: "1px solid #14532d", borderRadius: 16, padding: "16px 20px",
+            zIndex: 200, boxShadow: "0 16px 48px rgba(0,0,0,0.5)", animation: "slideUpToast 0.3s ease-out",
+          }}>
           <style>{`@keyframes slideUpToast { from { opacity: 0; transform: translateX(-50%) translateY(16px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }`}</style>
           <span className="text-xl shrink-0">🎉</span>
           <p className="flex-1 text-sm font-medium" style={{ color: "#f0f2f5" }}>
             Claim confirmed! A handoff chat has been started.
           </p>
-          <Link
-            href={`/handoff/${toastHandoffId}`}
+          <Link href={`/handoff/${toastHandoffId}`}
             className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold"
-            style={{ background: "#185FA5", color: "#fff" }}
-          >
+            style={{ background: "#185FA5", color: "#fff" }}>
             Go to Handoff →
           </Link>
-          <button
-            onClick={() => setToastHandoffId(null)}
-            className="shrink-0 text-sm"
-            style={{ color: "#4a5068" }}
-            aria-label="Dismiss"
-          >
-            ✕
-          </button>
+          <button onClick={() => setToastHandoffId(null)} className="shrink-0 text-sm"
+            style={{ color: "#4a5068" }} aria-label="Dismiss">✕</button>
         </div>
       )}
 
       {lightboxUrl && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
           style={{ background: 'rgba(0,0,0,0.85)' }}
-          onClick={() => setLightboxUrl(null)}
-        >
-          <button
-            className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold"
+          onClick={() => setLightboxUrl(null)}>
+          <button className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold"
             style={{ background: 'rgba(255,255,255,0.1)', color: '#f0f2f5' }}
-            onClick={() => setLightboxUrl(null)}
-          >
-            ✕
-          </button>
+            onClick={() => setLightboxUrl(null)}>✕</button>
           <Image
             src={lightboxUrl}
             alt="Proof full size"

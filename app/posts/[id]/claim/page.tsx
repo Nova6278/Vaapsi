@@ -274,13 +274,11 @@ export default function ClaimPost() {
 
                       {proofPreview ? (
                         <div className="relative rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-                          <Image
-                            src={proofPreview}
-                            alt="Proof preview"
-                            width={500}
-                            height={192}
-                            className="w-full max-h-48 object-cover"
-                            unoptimized
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+<img
+  src={proofPreview}
+  alt="Proof preview"
+  className="w-full max-h-48 object-cover"
 />
                           <button
                             type="button"
