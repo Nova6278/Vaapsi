@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { usePathname } from 'next/navigation'
+import { DEMO_ACCOUNT_IDS } from '@/lib/demo'
 
 export default function Navbar() {
   const [unreadCount, setUnreadCount] = useState(0)
@@ -12,6 +13,7 @@ export default function Navbar() {
   const [loggedIn, setLoggedIn] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isDemo, setIsDemo] = useState(false)
   const pathname = usePathname()
 
   useEffect(() => {
@@ -21,6 +23,7 @@ export default function Navbar() {
       if (!user) return
       setLoggedIn(true)
       if (user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL) setIsAdmin(true)
+      if (DEMO_ACCOUNT_IDS.has(user.id)) setIsDemo(true)
 
       const { count, error } = await supabase
         .from('notifications')
@@ -50,7 +53,7 @@ export default function Navbar() {
   }, [pathname])
 
   const navLinks = [
-    { href: '/posts/new', label: '+ New Post' },
+    { href: isDemo ? '/posts/new/demo' : '/posts/new', label: '+ New Post' },
     { href: '/my-posts', label: 'My Posts' },
     { href: '/my-claims', label: 'My Claims' },
     { href: '/profile', label: 'Profile' },
@@ -85,7 +88,7 @@ export default function Navbar() {
             <div className="hidden sm:flex items-center gap-5">
               {navLinks.map((link) => (
                 <Link key={link.href} href={link.href}
-                  {...(link.href === '/posts/new' ? { 'data-tutorial': 'newpost' } : {})}
+                  {...(link.label === '+ New Post' ? { 'data-tutorial': 'newpost' } : {})}
                   {...(link.href === '/my-posts' ? { 'data-tutorial': 'myposts' } : {})}
                   {...(link.href === '/my-claims' ? { 'data-tutorial': 'myclaims' } : {})}
                   className="text-sm transition-colors"

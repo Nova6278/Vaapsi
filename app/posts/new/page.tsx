@@ -5,8 +5,8 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { sanitize, LIMITS, containsProfanity } from '@/lib/sanitize'
 import { isValidImage, MAX_POST_IMAGE } from '@/lib/validate-image'
+import { DEMO_ACCOUNT_IDS } from '@/lib/demo'
 import Image from 'next/image'
-import { DEMO_ACCOUNT_IDS } from "@/lib/demo"
 
 const CATEGORIES = [
   'Electronics',
@@ -33,9 +33,10 @@ export default function NewPost() {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) { window.location.href = '/login'; return }
-      if (DEMO_ACCOUNT_IDS.has(user.id)) { window.location.href = '/dashboard'; return }
+      if (DEMO_ACCOUNT_IDS.has(user.id)) { window.location.href = '/posts/new/demo'; return }
     })
   }, [])
+
   const [form, setForm] = useState({
     type: 'lost',
     title: '',
@@ -113,6 +114,7 @@ export default function NewPost() {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) { setError('You must be logged in to post.'); setLoading(false); return }
+    if (DEMO_ACCOUNT_IDS.has(user.id)) { setError('Demo accounts cannot create posts. Create a real account.'); setLoading(false); return }
 
     let photoUrl: string | null = null
     if (imageFile) {
