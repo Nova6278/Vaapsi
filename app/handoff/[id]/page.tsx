@@ -5,6 +5,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import { useParams, useRouter } from "next/navigation";
 import { sanitize } from "@/lib/sanitize";
 import Link from "next/link";
+import { DEMO_ACCOUNT_IDS } from "@/lib/demo"
 
 interface HandoffRow {
   id: string;
@@ -252,6 +253,7 @@ export default function HandoffChat() {
   }, [newMsg, sending, handoff?.status, handoffId, userId, supabase]);
 
   const isOwner = userId === handoff?.user_1;
+  const isDemo = userId ? DEMO_ACCOUNT_IDS.has(userId) : false;
 
   const completeHandoff = async () => {
     if (!isOwner) return;
@@ -385,6 +387,17 @@ export default function HandoffChat() {
       </div>
 
       {handoff?.status === "active" ? (
+        isDemo ? (
+          <div className="sticky bottom-0 px-4 py-3"
+            style={{ background: 'rgba(5,10,21,0.95)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="max-w-xl mx-auto text-center py-1">
+              <p className="text-xs" style={{ color: '#4a5068' }}>
+                Demo accounts cannot send messages.{' '}
+                <Link href="/signup" style={{ color: '#5b9bd5' }}>Create a real account →</Link>
+              </p>
+            </div>
+          </div>
+        ) : (
         <div className="sticky bottom-0 px-4 py-3"
           style={{ background: 'rgba(5,10,21,0.95)', borderTop: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(12px)' }}>
           <div className="max-w-xl mx-auto flex gap-2">
@@ -406,6 +419,7 @@ export default function HandoffChat() {
             </button>
           </div>
         </div>
+        )
       ) : (
         <div className="sticky bottom-0 px-4 py-4"
   style={{ background: 'rgba(5,10,21,0.95)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>

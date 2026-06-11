@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { sanitize, LIMITS, containsProfanity } from '@/lib/sanitize'
 import { isValidImage, MAX_POST_IMAGE } from '@/lib/validate-image'
 import Image from 'next/image'
+import { DEMO_ACCOUNT_IDS } from "@/lib/demo"
 
 const CATEGORIES = [
   'Electronics',
@@ -31,9 +32,10 @@ export default function NewPost() {
   useEffect(() => {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) window.location.href = '/login'
+      if (!user) { window.location.href = '/login'; return }
+      if (DEMO_ACCOUNT_IDS.has(user.id)) { window.location.href = '/dashboard'; return }
     })
-  }, [])  
+  }, [])
   const [form, setForm] = useState({
     type: 'lost',
     title: '',

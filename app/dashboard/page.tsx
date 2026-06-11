@@ -7,6 +7,8 @@ import Link from 'next/link'
 import RefreshButton from './RefreshButton'
 import Image from 'next/image'
 
+import { DEMO_ACCOUNT_IDS } from "@/lib/demo"
+
 const CATEGORIES = [
   'All',
   'Electronics',
@@ -45,6 +47,7 @@ export default function Dashboard() {
   const [suggestionLoading, setSuggestionLoading] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isDemo, setIsDemo] = useState(false)
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -77,6 +80,7 @@ export default function Dashboard() {
       if (!user) { window.location.href = '/login'; return }
       setCurrentUserId(user.id)
       if (user.email === '2330427@kiit.ac.in') setIsAdmin(true)
+      if (DEMO_ACCOUNT_IDS.has(user.id)) setIsDemo(true)
       fetchPosts()
     }
     checkAuth()
@@ -145,6 +149,14 @@ export default function Dashboard() {
   return (
     <main className="relative min-h-screen overflow-hidden" style={{ background: '#050a15' }}>
       <Tutorial userId={currentUserId} />
+
+      {/* Demo banner */}
+      {isDemo && (
+        <div className="w-full px-4 py-2.5 text-center text-xs font-medium"
+          style={{ background: 'rgba(212,175,55,0.1)', borderBottom: '1px solid rgba(212,175,55,0.2)', color: '#D4AF37' }}>
+          👀 You&apos;re in demo mode — browsing only. <Link href="/signup" style={{ color: '#FDE68A', textDecoration: 'underline' }}>Create a real account</Link> to post and claim items.
+        </div>
+      )}
 
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-[-20%] right-[-15%] w-[600px] h-[600px] rounded-full opacity-[0.07]"
@@ -262,14 +274,14 @@ export default function Dashboard() {
                   className="mt-4 text-sm" style={{ color: '#185FA5' }}>
                   Clear filters
                 </button>
-              ) : (
+              ) : !isDemo ? (
                 <Link href="/posts/new">
                   <button className="mt-6 px-5 py-2 rounded-lg text-sm font-semibold text-white"
                     style={{ background: '#185FA5' }}>
                     + New Post
                   </button>
                 </Link>
-              )}
+              ) : null}
             </div>
           )}
 
@@ -347,7 +359,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {!isAdmin && (
+        {!isAdmin && !isDemo && (
           <div className="mt-12 max-w-xl mx-auto">
             <div className="rounded-2xl p-6"
               style={{ background: 'rgba(13,18,37,0.6)', border: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(12px)' }}>
@@ -393,6 +405,5 @@ export default function Dashboard() {
 
       </div>
     </main>
-    
   )
 }

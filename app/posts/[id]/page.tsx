@@ -4,6 +4,7 @@ import Link from "next/link";
 import ReportButton from "./ReportButton";
 import ImageLightbox from "./ImageLightbox";
 import CloseButton from "./CloseButton";
+import { DEMO_ACCOUNT_IDS } from "@/lib/demo"
 
 export default async function PostDetail({
   params,
@@ -29,6 +30,8 @@ export default async function PostDetail({
     signedPhotoUrl = signed?.signedUrl ?? null;
   }
 
+  const { data: { user } } = await supabase.auth.getUser();
+  const isDemo = user ? DEMO_ACCOUNT_IDS.has(user.id) : false;
   const isResolved = post.status === "resolved";
 
   return (
@@ -160,16 +163,25 @@ export default async function PostDetail({
                     ⚠️ Never pay anyone to return your item. Vaapsi handoffs are always free.
                   </p>
                 </div>
-                <Link href={`/posts/${id}/claim`}>
-                  <button
-                    className="mt-4 w-full py-3 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                    style={{ background: "#185FA5" }}
-                  >
-                    {post.type === "lost"
-                      ? "I Found This Item"
-                      : "Claim This Item"}
-                  </button>
-                </Link>
+                {isDemo ? (
+                  <Link href="/signup">
+                    <button
+                      className="mt-4 w-full py-3 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
+                      style={{ background: "rgba(24,95,165,0.15)", color: "#5b9bd5", border: "1px solid rgba(24,95,165,0.3)" }}
+                    >
+                      Create an account to {post.type === "lost" ? "report found items" : "claim this item"} →
+                    </button>
+                  </Link>
+                ) : (
+                  <Link href={`/posts/${id}/claim`}>
+                    <button
+                      className="mt-4 w-full py-3 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                      style={{ background: "#185FA5" }}
+                    >
+                      {post.type === "lost" ? "I Found This Item" : "Claim This Item"}
+                    </button>
+                  </Link>
+                )}
               </>
             )}
 
