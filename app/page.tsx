@@ -103,7 +103,7 @@ export default async function Home() {
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16"
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6"
             style={{ animation: 'fadeUp 0.8s ease-out 0.4s both' }}>
             <Link href="/signup"
               className="group relative px-8 py-3.5 rounded-xl text-sm font-bold text-white overflow-hidden transition-all duration-300"
@@ -122,6 +122,27 @@ export default async function Home() {
               }}>
               <span className="group-hover:text-white transition-colors duration-300">Sign In →</span>
             </Link>
+          </div>
+
+          {/* Demo mode */}
+          <div className="mb-16" style={{ animation: 'fadeUp 0.8s ease-out 0.45s both' }}>
+            <p className="text-xs mb-3" style={{ color: '#4a5068' }}>
+              Not from KIIT? Try the app with a demo account.
+            </p>
+            <div className="inline-flex flex-col sm:flex-row gap-3 rounded-2xl px-6 py-4"
+              style={{ background: 'rgba(13,18,37,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="text-center">
+                <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: '#4a5068' }}>Demo Account 1</p>
+                <p className="text-xs font-mono mb-0.5" style={{ color: '#f0f2f5' }}>demo1@kiit.ac.in</p>
+                <p className="text-xs font-mono" style={{ color: '#8b92a5' }}>Demo@1234</p>
+              </div>
+              <div className="hidden sm:block w-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
+              <div className="text-center">
+                <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: '#4a5068' }}>Demo Account 2</p>
+                <p className="text-xs font-mono mb-0.5" style={{ color: '#f0f2f5' }}>demo2@kiit.ac.in</p>
+                <p className="text-xs font-mono" style={{ color: '#8b92a5' }}>Demo@1234</p>
+              </div>
+            </div>
           </div>
         </div>
 

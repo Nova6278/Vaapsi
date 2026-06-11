@@ -8,6 +8,11 @@ const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+const DEMO_ACCOUNT_IDS = new Set([
+  "179f8bfd-6276-48e4-92c9-68afe4f4931f",
+  "423797db-4fa4-454c-92d9-dedd93fb38b2",
+]);
+
 type Step = {
   title: string;
   description: string;
@@ -69,6 +74,7 @@ export default function Tutorial({ userId }: { userId: string | null }) {
 
   useEffect(() => {
     if (!userId) return;
+    if (DEMO_ACCOUNT_IDS.has(userId)) { setVisible(true); return; }
     const check = async () => {
       const { data } = await supabase
         .from("users")
@@ -83,6 +89,7 @@ export default function Tutorial({ userId }: { userId: string | null }) {
   const finish = useCallback(async () => {
     setVisible(false);
     if (!userId) return;
+    if (DEMO_ACCOUNT_IDS.has(userId)) return;
     await supabase
       .from("users")
       .update({ tutorial_done: true })
@@ -99,10 +106,10 @@ export default function Tutorial({ userId }: { userId: string | null }) {
   }, [step]);
 
   useLayoutEffect(() => {
-  if (!visible) return;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  measureTarget();
-}, [visible, step, measureTarget]);
+    if (!visible) return;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    measureTarget();
+  }, [visible, step, measureTarget]);
 
   useEffect(() => {
     if (!visible) return;
