@@ -47,6 +47,11 @@ export async function POST(req: Request) {
 
   if (!post) return NextResponse.json({ error: 'Post not found' }, { status: 404 })
 
+  // Ownership check — only the post owner may trigger match notifications for it
+  if (post.user_id !== user.id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   // Check if notifications already sent for this found post
   const { data: existingNotifs } = await supabase
     .from('notifications')

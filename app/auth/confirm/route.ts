@@ -24,19 +24,35 @@ export async function GET(request: NextRequest) {
     }
   )
 
+  // Server-side enforcement: only @kiit.ac.in emails may hold a session.
+  // Client-side signup check is bypassable, so re-validate at the callback.
+  const KIIT_DOMAIN = '@kiit.ac.in'
+  const enforceDomain = async (): Promise<NextResponse | null> => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user?.email && !user.email.endsWith(KIIT_DOMAIN)) {
+      await supabase.auth.signOut()
+      return NextResponse.redirect(new URL('/login?error=invalid_domain', request.url))
+    }
+    return null
+  }
+
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
+      const domainError = await enforceDomain()
+      if (domainError) return domainError
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   }
 
   if (token_hash && type) {
-    const { error } = await supabase.auth.verifyOtp({ 
-      token_hash, 
-      type: type as import('@supabase/supabase-js').EmailOtpType 
+    const { error } = await supabase.auth.verifyOtp({
+      token_hash,
+      type: type as import('@supabase/supabase-js').EmailOtpType
     })
     if (!error) {
+      const domainError = await enforceDomain()
+      if (domainError) return domainError
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   }

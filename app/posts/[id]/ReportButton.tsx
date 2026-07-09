@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 
 const REASONS = [
@@ -12,9 +13,11 @@ const REASONS = [
 ]
 
 export default function ReportButton({ postId }: { postId: string }) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState('Spam or fake')
   const [submitted, setSubmitted] = useState(false)
+  const [alreadyReported, setAlreadyReported] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async () => {
@@ -25,7 +28,22 @@ export default function ReportButton({ postId }: { postId: string }) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { window.location.href = '/login'; return }
+    if (!user) { router.push('/login'); return }
+
+    // Prevent duplicate reports from the same reporter on the same post
+    const { data: existing } = await supabase
+      .from('reports')
+      .select('id')
+      .eq('post_id', postId)
+      .eq('reporter_id', user.id)
+      .maybeSingle()
+
+    if (existing) {
+      setAlreadyReported(true)
+      setSubmitted(true)
+      setLoading(false)
+      return
+    }
 
     const { data: post } = await supabase
       .from('posts')
@@ -44,7 +62,11 @@ export default function ReportButton({ postId }: { postId: string }) {
   }
 
   if (submitted) {
-    return <span className="text-xs" style={{ color: '#4a5068' }}>✓ Reported</span>
+    return (
+      <span className="text-xs" style={{ color: '#4a5068' }}>
+        {alreadyReported ? '✓ Already reported' : '✓ Reported'}
+      </span>
+    )
   }
 
   if (!open) {

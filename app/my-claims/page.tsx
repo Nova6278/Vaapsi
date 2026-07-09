@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -24,9 +24,12 @@ export default function MyClaims() {
   const [claims, setClaims] = useState<ClaimWithPost[]>([])
   const [loading, setLoading] = useState(true)
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  const supabase = useMemo(
+    () => createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    ),
+    []
   )
 
   useEffect(() => {
@@ -44,7 +47,7 @@ export default function MyClaims() {
       setLoading(false)
     }
     fetchClaims()
-  }, [])
+  }, [supabase, router])
 
   if (loading) return (
     <main style={{ background: '#080c18', minHeight: '100vh' }} className="px-4 py-8">

@@ -24,19 +24,7 @@ const nextConfig: NextConfig = {
             key: "Strict-Transport-Security",
             value: "max-age=63072000; includeSubDomains; preload",
           },
-          {
-            key: "Content-Security-Policy",
-            value: [
-              "default-src 'self' https://vaapsi.live https://www.vaapsi.live",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://*.vercel-insights.com",
-              "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https://*.supabase.co",
-              "connect-src 'self' https://vaapsi.live https://www.vaapsi.live https://*.supabase.co wss://*.supabase.co https://api.resend.com https://*.vercel-insights.com",
-              "font-src 'self'",
-              "frame-src 'none'",
-              "object-src 'none'",
-            ].join("; "),
-          },
+          // Content-Security-Policy is set in middleware.ts (single source of truth).
         ],
       },
     ];

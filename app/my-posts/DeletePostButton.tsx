@@ -1,16 +1,20 @@
 "use client";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
 import { createNotificationClient } from "@/lib/notifications-client";
+import { logError } from "@/lib/logger";
 
 export default function DeletePostButton({ postId, postTitle }: { postId: string; postTitle: string }) {
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const router = useRouter();
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  const supabase = useMemo(
+    () => createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    ),
+    []
   );
 
   const handleDelete = async () => {
@@ -25,7 +29,7 @@ export default function DeletePostButton({ postId, postTitle }: { postId: string
     // 2. Delete FIRST
     const { error } = await supabase.from("posts").delete().eq("id", postId);
     if (error) {
-      console.error("Delete failed:", error);
+      logError("Delete failed:", error);
       alert("Failed to delete post. Try again.");
       setDeleting(false);
       setConfirming(false);

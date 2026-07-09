@@ -30,10 +30,10 @@ export const IMAGE_RULES = {
   maxSizeBytes: 2 * 1024 * 1024,
 } as const
 
-/** Profanity / slang filter */
-const BANNED_WORDS = [
+/** Profanity / slang filter (deduped via Set as a safety net) */
+const BANNED_WORDS = [...new Set([
   'fuck', 'fucker', 'fucking', 'fucked', 'fck', 'fuk', 'fuq',
-  'shit', 'shit', 'bullshit', 'shitty', 'sht',
+  'shit', 'bullshit', 'shitty', 'sht',
   'ass', 'asshole', 'arsehole', 'arse',
   'bitch', 'biatch', 'bytch',
   'dick', 'dickhead',
@@ -60,7 +60,7 @@ const BANNED_WORDS = [
   'saala', 'saale', 'sala', 'sale',
   'kamina', 'kamine', 'kamini',
   'jhatu', 'jhaatu',
-  'tatti', 'tatti',
+  'tatti',
   'chod', 'chodna',
   'kutte', 'kutta', 'kutiya',
   'ullu', 'gadha',
@@ -68,13 +68,13 @@ const BANNED_WORDS = [
   'suar', 'suwar',
   'hagna',
   'bkl',
-  'boka', 'gadha', 'sala',
+  'boka',
   'chhinala', 'randibaj',
   'f u c k', 'sh1t', 's h i t', 'b1tch', 'a$$', 'a s s',
   'stfu', 'gtfo', 'lmfao', 'wtf', 'af',
   'sexy', 'boobs', 'boob', 'tits', 'porn', 'nude', 'nudes',
   'sex', 'horny', 'thot',
-]
+])]
 
 function normalizeText(text: string): string {
   return text

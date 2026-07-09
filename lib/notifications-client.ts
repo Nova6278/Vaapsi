@@ -1,3 +1,5 @@
+import { logError } from "@/lib/logger";
+
 type NotificationInput = {
   userId: string;
   message: string;
@@ -19,9 +21,9 @@ export async function createNotificationClient({
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      console.error("Notification failed:", res.status, data);
+      logError("Notification failed:", { status: res.status, data });
     }
   } catch (err) {
-    console.error("Notification failed:", err);
+    logError("Notification failed:", err);
   }
 }

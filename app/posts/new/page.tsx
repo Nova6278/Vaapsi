@@ -125,33 +125,22 @@ export default function NewPost() {
       photoUrl = fileName
     }
 
-    const { error: insertError } = await supabase.from('posts').insert({
+    const { data: newPost, error: insertError } = await supabase.from('posts').insert({
       ...cleaned, user_id: user.id, status: 'active', photo_url: photoUrl,
-    })
+    }).select('id').single()
 
     if (insertError) { setError(insertError.message); setLoading(false); return }
 
-    if (cleaned.type === 'found' && cleaned.category) {
-      const { data: newPost } = await supabase
-        .from('posts')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('title', cleaned.title)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
-
-      if (newPost) {
-        fetch('/api/match', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            postId: newPost.id,
-            category: cleaned.category,
-            title: cleaned.title,
-          }),
-        }).catch(() => {})
-      }
+    if (newPost && cleaned.type === 'found' && cleaned.category) {
+      fetch('/api/match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          postId: newPost.id,
+          category: cleaned.category,
+          title: cleaned.title,
+        }),
+      }).catch(() => {})
     }
 
     router.push('/dashboard')

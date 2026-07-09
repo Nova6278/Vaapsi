@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useParams, useRouter } from "next/navigation";
 import { createNotificationClient } from "@/lib/notifications-client";
@@ -29,9 +29,12 @@ export default function PostClaims() {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [toastHandoffId, setToastHandoffId] = useState<string | null>(null);
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  const supabase = useMemo(
+    () => createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    ),
+    []
   );
 
   useEffect(() => {
@@ -59,13 +62,21 @@ export default function PostClaims() {
       setPost({ title: postData.title, type: postData.type });
       setClaims((claimsData as ClaimRow[]) ?? []);
 
+      // Batch all proof signed-URLs into one request (avoids sequential N+1)
+      const claimList = (claimsData as ClaimRow[]) ?? [];
+      const withProof = claimList.filter((c) => c.proof_image_url);
       const urls: Record<string, string> = {};
-      for (const claim of (claimsData as ClaimRow[]) ?? []) {
-        if (claim.proof_image_url) {
-          const { data } = await supabase.storage
-            .from("claim-proofs")
-            .createSignedUrl(claim.proof_image_url, 3600);
-          if (data?.signedUrl) urls[claim.id] = data.signedUrl;
+      if (withProof.length > 0) {
+        const { data: signedList } = await supabase.storage
+          .from("claim-proofs")
+          .createSignedUrls(withProof.map((c) => c.proof_image_url as string), 3600);
+        const byPath = new Map<string, string>();
+        for (const s of signedList ?? []) {
+          if (s.path && s.signedUrl) byPath.set(s.path, s.signedUrl);
+        }
+        for (const c of withProof) {
+          const url = byPath.get(c.proof_image_url as string);
+          if (url) urls[c.id] = url;
         }
       }
       setProofUrls(urls);

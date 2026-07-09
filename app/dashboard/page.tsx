@@ -1,7 +1,7 @@
 'use client'
 
 import Tutorial from '@/app/components/Tutorial'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import Link from 'next/link'
 import RefreshButton from './RefreshButton'
@@ -49,9 +49,12 @@ export default function Dashboard() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [isDemo, setIsDemo] = useState(false)
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  const supabase = useMemo(
+    () => createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    ),
+    []
   )
 
   const fetchPosts = async () => {
@@ -62,13 +65,21 @@ export default function Dashboard() {
       .order('created_at', { ascending: false })
     const rawPosts = (data as Post[]) ?? []
 
-    const withSigned = await Promise.all(rawPosts.map(async (p) => {
-      if (!p.photo_url) return p
-      const { data: signed } = await supabase.storage
+    // Batch all signed-URL generation into one request (avoids N+1)
+    const paths = rawPosts.filter(p => p.photo_url).map(p => p.photo_url as string)
+    const signedMap = new Map<string, string>()
+    if (paths.length > 0) {
+      const { data: signedList } = await supabase.storage
         .from('post-images')
-        .createSignedUrl(p.photo_url, 3600)
-      return { ...p, photo_url: signed?.signedUrl ?? null }
-    }))
+        .createSignedUrls(paths, 3600)
+      for (const s of signedList ?? []) {
+        if (s.path && s.signedUrl) signedMap.set(s.path, s.signedUrl)
+      }
+    }
+
+    const withSigned = rawPosts.map(p =>
+      p.photo_url ? { ...p, photo_url: signedMap.get(p.photo_url) ?? null } : p
+    )
 
     setPosts(withSigned)
     setLoading(false)
@@ -79,7 +90,7 @@ export default function Dashboard() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { window.location.href = '/login'; return }
       setCurrentUserId(user.id)
-      if (user.email === '2330427@kiit.ac.in') setIsAdmin(true)
+      if (user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL) setIsAdmin(true)
       if (DEMO_ACCOUNT_IDS.has(user.id)) setIsDemo(true)
       fetchPosts()
     }
@@ -87,6 +98,7 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // TODO: move filtering to server-side query once post volume grows
   const filtered = posts.filter(p => {
     if (selectedCategory !== 'All' && p.category !== selectedCategory) return false
     if (selectedType !== 'all' && p.type !== selectedType) return false

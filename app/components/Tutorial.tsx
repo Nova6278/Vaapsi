@@ -71,6 +71,9 @@ export default function Tutorial({ userId }: { userId: string | null }) {
 
   useEffect(() => {
     if (!userId) return;
+    // Visibility is gated on user identity (demo vs. tutorial_done); an effect is
+    // the right place to sync it from the async DB check below.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (DEMO_ACCOUNT_IDS.has(userId)) { setVisible(true); return; }
     const check = async () => {
       const { data } = await supabase
@@ -104,7 +107,9 @@ export default function Tutorial({ userId }: { userId: string | null }) {
 
   useLayoutEffect(() => {
     if (!visible) return;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Reads DOM layout (getBoundingClientRect) and syncs it to state — a valid
+    // external-system sync that must run after layout.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     measureTarget();
   }, [visible, step, measureTarget]);
 
@@ -113,6 +118,27 @@ export default function Tutorial({ userId }: { userId: string | null }) {
     window.addEventListener("resize", measureTarget);
     return () => window.removeEventListener("resize", measureTarget);
   }, [visible, measureTarget]);
+
+  // Keyboard navigation: Esc skips, Enter/ArrowRight advances, ArrowLeft goes back
+  useEffect(() => {
+    if (!visible) return;
+    const onKey = (e: KeyboardEvent) => {
+      // Enter on a focused button is already handled by the button's onClick;
+      // don't also advance here or it double-fires.
+      if (e.key === "Enter" && e.target instanceof HTMLButtonElement) return;
+      if (e.key === "Escape") {
+        finish();
+      } else if (e.key === "Enter" || e.key === "ArrowRight") {
+        e.preventDefault();
+        if (step >= STEPS.length - 1) finish();
+        else setStep(step + 1);
+      } else if (e.key === "ArrowLeft") {
+        if (step > 0) setStep(step - 1);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [visible, step, finish]);
 
   if (!visible) return null;
 

@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { useRouter, useParams } from 'next/navigation'
 import { createNotificationClient } from '@/lib/notifications-client'
+import { logError } from '@/lib/logger'
 import { sanitize, LIMITS } from '@/lib/sanitize'
 import { isValidImage, MAX_PROOF_IMAGE } from '@/lib/validate-image'
-import Image from 'next/image'
 
 export default function ClaimPost() {
   const router = useRouter()
@@ -149,7 +149,7 @@ export default function ClaimPost() {
         .upload(filePath, proofFile, { upsert: false })
 
       if (uploadError) {
-        console.error('Proof upload failed:', uploadError.message)
+        logError('Proof upload failed:', uploadError.message)
       } else {
         await supabase
           .from('claims')
@@ -274,6 +274,9 @@ export default function ClaimPost() {
 
                       {proofPreview ? (
                         <div className="relative rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                          {/* Raw <img> is intentional: proofPreview is a transient
+                              URL.createObjectURL blob; next/image adds no value for a
+                              client-only preview and requires fixed dimensions. */}
                           {/* eslint-disable-next-line @next/next/no-img-element */}
 <img
   src={proofPreview}

@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabase } from "@/lib/supabase-admin";
+import { logError } from "@/lib/logger";
 import { z } from "zod";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -120,7 +121,7 @@ export async function POST(req: NextRequest) {
         if (attempt < 2) {
           await sendEmail(attempt + 1);
         } else {
-          console.error("Email failed after retry:", emailError);
+          logError("Email failed after retry:", emailError);
         }
       }
     };

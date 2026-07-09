@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useParams, useRouter } from "next/navigation";
 import { sanitize } from "@/lib/sanitize";
+import { logError } from "@/lib/logger";
 import Link from "next/link";
 import { DEMO_ACCOUNT_IDS } from "@/lib/demo"
 
@@ -28,8 +29,6 @@ interface MessageRow {
   isOptimistic?: boolean;
 }
 
-const NOTIF_SOUND_B64 =
-  "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVYGAACAgICAgICAgICAgICAgICAgICAgICAgICAf3+AgYGBgIB/f35+fn5/f4CAgYGBgYGAgH9+fX19fn5/gIGBgoKCgYF/fn18fH1+f4CBgoODgoKBf358fHx9fn+AgYKDg4OCgX9+fHt8fX5/gIGCg4SDgoF/fnx7e3x+f4CBgoOEg4KBf357e3t8fX+AgYKDhIOCgX9+fHt7fH1/gIGCg4SDgoF/fnx7e3x9f4CBgoOEg4OBf358e3t8fX+AgYKDhISDgYB+fHt7fH1/gIGCg4SEg4GAfnx7e3x9f4CBgoOEhIOBgH58e3t8fX+AgYKDhISDgYB+fHt7fH1/gIGCg4SEg4GAfnx7e3x9f4CBgoOEhIOBgH58e3t8fX+AgYKDhISDgYB+fHt8fH1/gIGCg4SEg4GAfn17fHx9f4CBgoOEhIOBgH59e3x8fX+AgYKDhISDgYB+fXt8fH1/gIGCg4SEg4KAfn17fHx9f4CBgoOEhIOCgH59e3x8fX+AgYKDhISDgoB+fXt8fH5/gIGCg4SEg4KAfn17fHx+f4CBgoOEhIOCgH59fHx8fn+AgYKDhISDgoB+fXx8fH5/gIGCg4SEg4KAfn18fHx+f4CBgoOEhIOCgH5+fHx9fn+AgYKDhISDgoB/fn18fH1+f4CBgoOEhIOCgH9+fXx9fn+AgYKDhISDgoB/fn18fX5/gIGCg4SEg4KAf359fH1+f4CBgoOEg4OCgH9+fX19fn+AgYKDhIODgoB/fn19fX5/gIGCg4SDg4KAf35+fX1+f4CBgoOEg4OCgH9/fn19fn+AgYKDhIODgoCAf35+fX5/gIGCg4SDg4KBAH9+fn5+f4CBgoOEg4OCgYB/fn5+fn+AgYKDg4ODgoGAf39+fn5/gIGCg4ODg4KBgH9/fn5+f4CBgoODg4OCgYCAf39+fn+AgIGCg4ODg4KBgIB/f39/f4CAgYKDg4ODgoGAgH9/f39/gICBgoODg4OCgYCAf39/f3+AgIGCg4ODgoKBgICAf39/f4CAgYKDg4OCgoGAgIB/f39/gICBgoKDg4KCgYCAgH+Af3+AgIGCgoODgoKBgICAgH+Af4CAgYKCg4OCgoGBgICAgICAgICAgYKCg4OCgoGBgICAgICAgICAgYKCgoOCgoKBgYCAgICAgICAgIGCgoKDgoKCgYGAgICAgICAgICBgoKCg4KCgoGBgICAgICAgICAgYGCgoKCgoKBgYGAgICAgICAgICBgYKCgoKCgoGBgYCAgICAgICAgIGBgoKCgoKCgYGBgICAgICAgICAgYGBgoKCgoKBgYGAgICAgICAgICBgYGCgoKCgoGBgYCAgICAgICAgIGBgYKCgoKCgYGBgICAgICAgICAgYGBgoKCgoGBgYGAgICAgICAgICBgYGBgoKCgYGBgYCAgICAgICAgICBgYGBgoKCgYGBgYCAgICAgICAgICBgYGBgoKCgYGBgYCAgICAgICAgICBgYGBgoKCgYGBgYCAgICAgICAgICBgYGBgYKCgYGBgYCAgICAgICAgICBgYGBgYKCgYGBgYGAgICAgICAgICBgYGBgYKCgYGBgYGAgICAgICAgICBgYGBgYGCgYGBgYGAgICAgICAgICAgYGBgYGCgYGBgYGAgICAgICAgICAgYGBgYGBgYGBgYGAgICAgICAgICAgYGBgYGBgYGBgYGAgICAgICAgICAgYGBgYGBgYGBgYGAgICAgICAgICAgYGBgYGBgYGBgYGAgICAgICAgICAgYGBgYGBgYGBgYCAgICAgICAgICAgYGBgYGBgYGBgYCAgICAgICAgICAgYGBgYGBgYGBgYCAgICAgICAgICAgIGBgYGBgYGBgYCAgICAgICAgICAgIGBgYGBgYGBgYCAgICAgICAgICAgIGBgYGBgYGBgICAgICAgICAgICAgIGBgYGBgYGBgICAgICAgICAgICAgICBgYGBgYGBgICAgICAgICAgICAgICBgYGBgYGBgICAgICAgICAgICAgICBgYGBgYGAgICAgICAgICAgICAgICAgYGBgYGAgICAgICAgICAgICAgICAgYGBgYGAgICAgICAgICAgICAgICAgYGBgYGAgICAgICAgICAgICAgICAgIGBgYGAgICAgICAgICAgICAgICAgICBgYGAgICAgICAgICAgA==";
 
 export default function HandoffChat() {
   const params = useParams();
@@ -48,14 +47,20 @@ export default function HandoffChat() {
   const [sending, setSending] = useState(false);
   const [showLostPostPrompt, setShowLostPostPrompt] = useState(false);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">("default");
+  // Realtime health: assume healthy on mount (5s grace); flip false to activate
+  // the polling fallback if Realtime never subscribes or later errors.
+  const [realtimeHealthy, setRealtimeHealthy] = useState(true);
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  const supabase = useMemo(
+    () => createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    ),
+    []
   );
 
   useEffect(() => {
-    audioRef.current = new Audio(NOTIF_SOUND_B64);
+    audioRef.current = new Audio("/sounds/notification.wav");
     audioRef.current.volume = 0.5;
   }, []);
 
@@ -143,13 +148,91 @@ export default function HandoffChat() {
     }
   }, [notifPermission, handoffId]);
 
+  // Live updates via Supabase Realtime (with a polling fallback — see effect below)
   useEffect(() => {
     if (!handoffId || !userId) return;
 
-    let polling = false;
-    const interval = setInterval(async () => {
-      if (polling) return;
-      polling = true;
+    // If Realtime doesn't reach SUBSCRIBED within 5s, fall back to polling.
+    const graceTimer = setTimeout(() => {
+      logError("[handoff] Realtime not SUBSCRIBED within 5s — enabling polling fallback", null);
+      setRealtimeHealthy(false);
+    }, 5000);
+
+    const channel = supabase
+      .channel(`handoff-${handoffId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "handoff_messages", filter: `handoff_id=eq.${handoffId}` },
+        (payload) => {
+          const msg = payload.new as MessageRow;
+          setMessages((prev) => {
+            // Skip if we already have this row (our own echo, or a duplicate event)
+            if (prev.some((m) => m.id === msg.id)) return prev;
+            const updated = [...prev, msg];
+            prevMsgCountRef.current = updated.length;
+            return updated;
+          });
+
+          if (msg.sender_id !== userId) {
+            notifyNewMessage(msg.content);
+            // Mark the incoming message as read
+            supabase
+              .from("handoff_messages")
+              .update({ is_read: true })
+              .eq("id", msg.id);
+          }
+
+          setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "handoffs", filter: `id=eq.${handoffId}` },
+        (payload) => {
+          const updatedHandoff = payload.new as HandoffRow;
+          const wasActive = prevHandoffStatusRef.current === "active";
+          const nowComplete = updatedHandoff.status === "completed";
+          prevHandoffStatusRef.current = updatedHandoff.status;
+          setHandoff(updatedHandoff);
+
+          if (wasActive && nowComplete && userId) {
+            supabase
+              .from("posts")
+              .select("id")
+              .eq("user_id", userId)
+              .eq("type", "lost")
+              .eq("status", "active")
+              .then(({ data: lostPosts }) => {
+                if (lostPosts && lostPosts.length > 0) setShowLostPostPrompt(true);
+              });
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          clearTimeout(graceTimer);
+          setRealtimeHealthy(true); // clears polling if it was active (reconnect)
+        } else if (status === "TIMED_OUT" || status === "CHANNEL_ERROR") {
+          logError(`[handoff] Realtime status ${status} — enabling polling fallback`, null);
+          setRealtimeHealthy(false);
+        }
+      });
+
+    return () => {
+      clearTimeout(graceTimer);
+      supabase.removeChannel(channel);
+    };
+  }, [handoffId, userId, notifyNewMessage, supabase]);
+
+  // Polling fallback: runs only while Realtime is unhealthy. Merges server truth
+  // with any not-yet-persisted optimistic messages, deduped by id.
+  useEffect(() => {
+    if (!handoffId || !userId || realtimeHealthy) return;
+
+    let inFlight = false;
+    const pollOnce = async () => {
+      if (inFlight) return;
+      inFlight = true;
       try {
         const [{ data: msgs }, { data: updatedHandoff }] = await Promise.all([
           supabase
@@ -165,43 +248,40 @@ export default function HandoffChat() {
         ]);
 
         if (updatedHandoff) {
-  const wasActive = prevHandoffStatusRef.current === "active";
-  const nowComplete = updatedHandoff.status === "completed";
-  prevHandoffStatusRef.current = updatedHandoff.status;
-  setHandoff(updatedHandoff as HandoffRow);
-
-  if (wasActive && nowComplete && userId) {
-    const { data: lostPosts } = await supabase
-      .from("posts")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("type", "lost")
-      .eq("status", "active")
-    if (lostPosts && lostPosts.length > 0) setShowLostPostPrompt(true);
-  }
-}
+          const wasActive = prevHandoffStatusRef.current === "active";
+          const nowComplete = updatedHandoff.status === "completed";
+          prevHandoffStatusRef.current = updatedHandoff.status;
+          setHandoff(updatedHandoff as HandoffRow);
+          if (wasActive && nowComplete && userId) {
+            const { data: lostPosts } = await supabase
+              .from("posts")
+              .select("id")
+              .eq("user_id", userId)
+              .eq("type", "lost")
+              .eq("status", "active");
+            if (lostPosts && lostPosts.length > 0) setShowLostPostPrompt(true);
+          }
+        }
 
         if (msgs) {
-          setMessages(msgs as MessageRow[]);
+          const serverMsgs = msgs as MessageRow[];
+          const serverIds = new Set(serverMsgs.map((m) => m.id));
 
-          if (msgs.length > prevMsgCountRef.current) {
-            const newMsgs = msgs.slice(prevMsgCountRef.current);
-            const hasOtherMsg = newMsgs.some((m) => m.sender_id !== userId);
-
-            if (hasOtherMsg) {
-              const lastOtherMsg = [...newMsgs].reverse().find((m) => m.sender_id !== userId);
-              if (lastOtherMsg) {
-                notifyNewMessage(lastOtherMsg.content);
-              }
-            }
-
-            prevMsgCountRef.current = msgs.length;
+          if (serverMsgs.length > prevMsgCountRef.current) {
+            const newMsgs = serverMsgs.slice(prevMsgCountRef.current);
+            const lastOther = [...newMsgs].reverse().find((m) => m.sender_id !== userId);
+            if (lastOther) notifyNewMessage(lastOther.content);
+            prevMsgCountRef.current = serverMsgs.length;
             setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
           }
 
-          const unread = msgs.filter(
-            (m) => m.sender_id !== userId && !m.is_read
-          );
+          // Server is truth; keep only optimistic rows not yet persisted (dedupe by id)
+          setMessages((prev) => {
+            const pendingOptimistic = prev.filter((m) => m.isOptimistic && !serverIds.has(m.id));
+            return [...serverMsgs, ...pendingOptimistic];
+          });
+
+          const unread = serverMsgs.filter((m) => m.sender_id !== userId && !m.is_read);
           if (unread.length > 0) {
             await supabase
               .from("handoff_messages")
@@ -210,13 +290,15 @@ export default function HandoffChat() {
           }
         }
       } finally {
-        polling = false;
+        inFlight = false;
       }
-    }, 2000);
+    };
 
+    logError("[handoff] Polling fallback active (Realtime unhealthy)", null);
+    pollOnce();
+    const interval = setInterval(pollOnce, 2000);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handoffId, userId, notifyNewMessage]);
+  }, [handoffId, userId, realtimeHealthy, notifyNewMessage, supabase]);
 
   const sendMessage = useCallback(async () => {
     if (!newMsg.trim() || sending || handoff?.status !== "active") return;
@@ -224,8 +306,9 @@ export default function HandoffChat() {
 
     const sanitized = sanitize(newMsg.trim());
 
+    const optimisticId = crypto.randomUUID();
     const optimisticMsg: MessageRow = {
-      id: crypto.randomUUID(),
+      id: optimisticId,
       handoff_id: handoffId,
       sender_id: userId!,
       content: sanitized,
@@ -243,11 +326,27 @@ export default function HandoffChat() {
 
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
 
-    await supabase.from("handoff_messages").insert({
-      handoff_id: handoffId,
-      sender_id: userId,
-      content: sanitized,
-    });
+    // Insert and swap the optimistic placeholder for the real row, so the
+    // Realtime echo (same real id) is de-duped by the INSERT handler.
+    const { data: inserted } = await supabase
+      .from("handoff_messages")
+      .insert({
+        handoff_id: handoffId,
+        sender_id: userId,
+        content: sanitized,
+      })
+      .select()
+      .single();
+
+    if (inserted) {
+      // Drop the optimistic placeholder and add the real row only if the Realtime
+      // echo hasn't already inserted it (avoids a duplicate key on a fast echo).
+      setMessages((prev) => {
+        const withoutOptimistic = prev.filter((m) => m.id !== optimisticId);
+        if (withoutOptimistic.some((m) => m.id === inserted.id)) return withoutOptimistic;
+        return [...withoutOptimistic, inserted as MessageRow];
+      });
+    }
 
     setSending(false);
   }, [newMsg, sending, handoff?.status, handoffId, userId, supabase]);

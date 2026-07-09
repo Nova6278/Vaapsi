@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -21,9 +21,12 @@ export default function HandoffsList() {
   const [handoffs, setHandoffs] = useState<HandoffItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  const supabase = useMemo(
+    () => createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    ),
+    []
   );
 
   useEffect(() => {
@@ -44,29 +47,31 @@ export default function HandoffsList() {
         return;
       }
 
-      // Fetch post titles + unread counts
-      const results: HandoffItem[] = [];
+      // Fetch all post titles in one query, and all unread counts concurrently
+      const postIds = [...new Set(myHandoffs.map((h) => h.post_id))];
+      const [{ data: postRows }, unreadCounts] = await Promise.all([
+        supabase.from("posts").select("id, title").in("id", postIds),
+        Promise.all(
+          myHandoffs.map((h) =>
+            supabase
+              .from("handoff_messages")
+              .select("*", { count: "exact", head: true })
+              .eq("handoff_id", h.id)
+              .neq("sender_id", user.id)
+              .eq("is_read", false)
+          )
+        ),
+      ]);
 
-      for (const h of myHandoffs) {
-        const { data: post } = await supabase
-          .from("posts")
-          .select("title")
-          .eq("id", h.post_id)
-          .single();
+      const titleById = new Map<string, string>(
+        (postRows ?? []).map((p) => [p.id as string, p.title as string])
+      );
 
-        const { count } = await supabase
-          .from("handoff_messages")
-          .select("*", { count: "exact", head: true })
-          .eq("handoff_id", h.id)
-          .neq("sender_id", user.id)
-          .eq("is_read", false);
-
-        results.push({
-          ...h,
-          post_title: post?.title ?? "Unknown item",
-          unread: count ?? 0,
-        });
-      }
+      const results: HandoffItem[] = myHandoffs.map((h, i) => ({
+        ...h,
+        post_title: titleById.get(h.post_id) ?? "Unknown item",
+        unread: unreadCounts[i].count ?? 0,
+      }));
 
       setHandoffs(results);
       setLoading(false);

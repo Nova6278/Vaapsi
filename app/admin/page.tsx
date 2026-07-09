@@ -45,7 +45,7 @@ type SuggestionRow = {
   user_id: string
 }
 
-const ADMIN_EMAIL = '2330427@kiit.ac.in'
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL!
 
 export default async function AdminPage() {
   const supabase = await createServerSupabase()

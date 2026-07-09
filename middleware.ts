@@ -26,16 +26,49 @@ const limiters = {
   }),
 }
 
+// Single source of truth for Content-Security-Policy (next.config.ts intentionally
+// does NOT set CSP — see its headers()). unsafe-eval is dev-only; wss://*.supabase.co
+// is required for Supabase Realtime; the vercel domains cover analytics/speed-insights.
+const isDev = process.env.NODE_ENV === 'development'
+
+const scriptSrc = [
+  "'self'",
+  "'unsafe-inline'",
+  'https://vercel.live',
+  'https://*.vercel-insights.com',
+  'https://va.vercel-scripts.com',
+  ...(isDev ? ["'unsafe-eval'"] : []),
+].join(' ')
+
+const connectSrc = [
+  "'self'",
+  'https://*.supabase.co',
+  'wss://*.supabase.co',
+  'https://*.vercel-insights.com',
+  'https://va.vercel-scripts.com',
+].join(' ')
+
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  `script-src ${scriptSrc}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' https://*.supabase.co data: blob:",
+  "font-src 'self'",
+  `connect-src ${connectSrc}`,
+  "frame-ancestors 'none'",
+  "frame-src 'none'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join('; ')
+
 const securityHeaders = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'X-XSS-Protection': '1; mode=block',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  'Content-Security-Policy':
-    process.env.NODE_ENV === 'development'
-      ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https://*.supabase.co data: blob:; font-src 'self'; connect-src 'self' https://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
-      : "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https://*.supabase.co data: blob:; font-src 'self'; connect-src 'self' https://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self';",
+  'Content-Security-Policy': contentSecurityPolicy,
 }
 
 function applySecurityHeaders(response: NextResponse) {

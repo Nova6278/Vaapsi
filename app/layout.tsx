@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const siteUrl = "https://vaapsi.vercel.app";
+const siteUrl = "https://vaapsi.live";
 
 export const metadata: Metadata = {
   title: {
