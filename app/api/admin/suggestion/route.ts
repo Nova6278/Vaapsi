@@ -53,5 +53,13 @@ export async function POST(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ success: true, suggestorId: updated.user_id, reply })
+  const preview = reply.length > 100 ? `${reply.slice(0, 100)}…` : reply
+  await admin.from('notifications').insert({
+    user_id: updated.user_id,
+    message: `Your suggestion was marked resolved. Admin reply: ${preview}`,
+    claim_id: null,
+    post_id: null,
+  })
+
+  return NextResponse.json({ success: true })
 }

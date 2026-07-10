@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createNotificationClient } from '@/lib/notifications-client'
 
 export type AdminSuggestion = {
   id: string
@@ -37,14 +36,9 @@ function SuggestionCard({ s, onResolved }: { s: AdminSuggestion; onResolved: () 
       setError(data.error ?? 'Could not save reply.')
       return
     }
-    const data = await res.json()
-    const preview = data.reply.length > 100 ? `${data.reply.slice(0, 100)}…` : data.reply
-    await createNotificationClient({
-      userId: data.suggestorId,
-      message: `Your suggestion was marked resolved. Admin reply: ${preview}`,
-    })
     setSaving(false)
     onResolved()
+
   }
 
   const identity = s.name
