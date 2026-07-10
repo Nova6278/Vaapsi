@@ -1,12 +1,15 @@
 import { createServerSupabase } from '@/lib/supabase-server'
+import { createAdminSupabase } from '@/lib/supabase-admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import AdminActions from './AdminActions'
 import ResetButton from './ResetButton'
+import SuggestionsAdmin, { type AdminSuggestion } from './SuggestionsAdmin'
 
 type UserRow = {
   id: string
   email: string
+  name: string | null
   is_banned: boolean
   warning_issued: boolean
   ban_reason: string | null
@@ -43,7 +46,12 @@ type SuggestionRow = {
   suggestion: string
   created_at: string
   user_id: string
+  admin_reply?: string | null
+  status?: string | null
 }
+
+// Admin must always see live reports/suggestions, never a cached render.
+export const dynamic = 'force-dynamic'
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL!
 
@@ -52,6 +60,10 @@ export default async function AdminPage() {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user || user.email !== ADMIN_EMAIL) redirect('/dashboard')
+
+  // Suggestions are RLS-restricted to their owner; the admin reads them via the
+  // service-role client (gate above already confirmed the caller is the admin).
+  const adminDb = createAdminSupabase()
 
   const [
     { data: posts },
@@ -62,9 +74,9 @@ export default async function AdminPage() {
   ] = await Promise.all([
     supabase.from('posts').select('id, title, type, status, created_at, user_id, location').order('created_at', { ascending: false }),
     supabase.from('reports').select('id, post_id, reporter_id, reported_user_id, reason, created_at').order('created_at', { ascending: false }),
-    supabase.from('users').select('id, email, is_banned, warning_issued, ban_reason').order('id'),
+    supabase.from('users').select('id, email, name, is_banned, warning_issued, ban_reason').order('id'),
     supabase.from('posts').select('id, type, status, updated_at').eq('status', 'resolved'),
-    supabase.from('suggestions').select('id, suggestion, created_at, user_id').order('created_at', { ascending: false }),
+    adminDb.from('suggestions').select('*').order('created_at', { ascending: false }),
   ])
 
   const postList: PostRow[] = posts ?? []
@@ -73,6 +85,22 @@ export default async function AdminPage() {
   const resolvedPosts: ResolvedPost[] = resolvedList ?? []
   const suggestionList: SuggestionRow[] = suggestions ?? []
   const reportedPostIds = new Set(reportList.map((r: ReportRow) => r.post_id))
+
+  const adminSuggestions: AdminSuggestion[] = suggestionList.map((s: SuggestionRow) => {
+    const suggester = userList.find((u: UserRow) => u.id === s.user_id)
+    const email = suggester?.email ?? null
+    return {
+      id: s.id,
+      suggestion: s.suggestion,
+      created_at: s.created_at,
+      user_id: s.user_id,
+      name: suggester?.name ?? null,
+      email,
+      roll: email ? email.split('@')[0] : null,
+      admin_reply: s.admin_reply ?? null,
+      status: s.status ?? null,
+    }
+  })
 
   const monthlyReturns: Record<string, number> = {}
   resolvedPosts.forEach((p: ResolvedPost) => {
@@ -276,26 +304,7 @@ export default async function AdminPage() {
         </div>
 
         {/* Suggestions */}
-        <div className="mb-8">
-          <h2 className="text-sm font-semibold uppercase tracking-widest mb-3" style={{ color: '#5b9bd5' }}>
-            💡 Feature suggestions ({suggestionList.length})
-          </h2>
-          {suggestionList.length === 0 ? (
-            <p className="text-xs" style={{ color: '#4a5068' }}>No suggestions yet.</p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {suggestionList.map((s: SuggestionRow) => (
-                <div key={s.id} className="rounded-xl p-4"
-                  style={{ background: '#0d1225', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <p className="text-sm" style={{ color: '#f0f2f5' }}>{s.suggestion}</p>
-                  <p className="text-xs mt-1" style={{ color: '#4a5068' }}>
-                    {new Date(s.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <SuggestionsAdmin suggestions={adminSuggestions} />
 
         <Link href="/dashboard" className="block mt-8 text-center text-xs" style={{ color: '#4a5068' }}>
           ← Back to dashboard
