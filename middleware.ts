@@ -24,6 +24,11 @@ const limiters = {
     limiter: Ratelimit.slidingWindow(5, '1 m'),
     prefix: 'rl:claim',
   }),
+  post: new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(5, '1 h'),
+    prefix: 'rl:post',
+  }),
 }
 
 // Single source of truth for Content-Security-Policy (next.config.ts intentionally
@@ -200,6 +205,9 @@ export async function middleware(req: NextRequest) {
 
   if (path === '/api/notify' || path === '/api/match' || path === '/api/handoff') {
     limiter = limiters.api
+    isApiRoute = true
+  } else if (path === '/api/posts/create') {
+    limiter = limiters.post
     isApiRoute = true
   } else if (path === '/signup' || path === '/login') {
     limiter = limiters.auth

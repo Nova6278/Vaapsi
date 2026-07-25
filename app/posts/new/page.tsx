@@ -125,11 +125,20 @@ export default function NewPost() {
       photoUrl = fileName
     }
 
-    const { data: newPost, error: insertError } = await supabase.from('posts').insert({
-      ...cleaned, user_id: user.id, status: 'active', photo_url: photoUrl,
-    }).select('id').single()
+    const createRes = await fetch('/api/posts/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...cleaned, photo_url: photoUrl }),
+    })
 
-    if (insertError) { setError(insertError.message); setLoading(false); return }
+    if (!createRes.ok) {
+      const data = await createRes.json().catch(() => ({}))
+      setError((data as { error?: string }).error ?? 'Failed to create post.')
+      setLoading(false)
+      return
+    }
+
+    const { post: newPost } = await createRes.json() as { post: { id: string } }
 
     if (newPost && cleaned.type === 'found' && cleaned.category) {
       fetch('/api/match', {
