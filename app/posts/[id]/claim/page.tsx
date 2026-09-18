@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { useRouter, useParams } from 'next/navigation'
-import { createNotificationClient } from '@/lib/notifications-client'
 import { logError } from '@/lib/logger'
 import { sanitize, LIMITS } from '@/lib/sanitize'
 import { isValidImage, MAX_PROOF_IMAGE } from '@/lib/validate-image'
@@ -91,62 +90,42 @@ export default function ClaimPost() {
       return
     }
 
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    // Claim creation is fully server-side now (audit H4/C2): the route
+    // enforces auth, ban status, own-post and duplicate guards, and creates
+    // the owner's notification itself with a fixed template.
+    const res = await fetch('/api/claims/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ postId, answer: cleanedAnswer }),
+    })
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setError('You must be logged in to claim.'); setLoading(false); return }
-
-    if (post && post.user_id === user.id) {
-      setError('You cannot claim your own post.')
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      setError((data as { error?: string }).error ?? 'Failed to submit claim.')
       setLoading(false)
       return
     }
 
-    // #15 server-side own-post guard
-    const { data: freshPost } = await supabase
-      .from('posts')
-      .select('user_id')
-      .eq('id', postId)
-      .single()
+    const { claimId } = (await res.json()) as { claimId: string }
 
-    if (freshPost?.user_id === user.id) {
-      setError('You cannot claim your own post.')
-      setLoading(false)
-      return
-    }
-
-    // #15 server-side duplicate guard
-    const { data: dupCheck } = await supabase
-      .from('claims')
-      .select('id')
-      .eq('post_id', postId)
-      .eq('claimant_id', user.id)
-      .limit(1)
-
-    if (dupCheck && dupCheck.length > 0) {
-      setError('You have already submitted a claim on this post.')
-      setLoading(false)
-      return
-    }
-
-    const { data: claim, error: claimError } = await supabase
-      .from('claims')
-      .insert({ post_id: postId, claimant_id: user.id, answer: cleanedAnswer, status: 'pending' })
-      .select()
-      .single()
-
-    if (claimError) { setError(claimError.message); setLoading(false); return }
-
-    if (proofFile && claim) {
-      const ext = proofFile.name.split('.').pop() || 'jpg'
-      const filePath = `${claim.id}/proof.${ext}`
+    if (proofFile && claimId) {
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+      // Extension derived from the VALIDATED mime type, not the filename (audit M5).
+      const extByType: Record<string, string> = {
+        'image/jpeg': 'jpg',
+        'image/png': 'png',
+        'image/webp': 'webp',
+        'image/gif': 'gif',
+      }
+      const ext = extByType[proofFile.type] ?? 'jpg'
+      const filePath = `${claimId}/proof.${ext}`
 
       const { error: uploadError } = await supabase.storage
         .from('claim-proofs')
-        .upload(filePath, proofFile, { upsert: false })
+        .upload(filePath, proofFile, { upsert: false, contentType: proofFile.type })
 
       if (uploadError) {
         logError('Proof upload failed:', uploadError.message)
@@ -154,17 +133,8 @@ export default function ClaimPost() {
         await supabase
           .from('claims')
           .update({ proof_image_url: filePath })
-          .eq('id', claim.id)
+          .eq('id', claimId)
       }
-    }
-
-    if (post) {
-     await createNotificationClient({
-  userId: post.user_id,
-  message: `Someone claimed your post: ${post.title}`,
-  claimId: claim.id,
-  postId,
-})
     }
 
     router.push('/dashboard')

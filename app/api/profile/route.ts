@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabase } from '@/lib/supabase-server'
+import { getActiveUser } from '@/lib/auth-server'
 import { createAdminSupabase } from '@/lib/supabase-admin'
+import { userLimiters, limitUser } from '@/lib/ratelimit'
 import { isValidImage } from '@/lib/validate-image'
-import { sanitize } from '@/lib/sanitize'
+import { sanitize, containsProfanity } from '@/lib/sanitize'
 
 const AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_AVATAR = 2 * 1024 * 1024 // 2MB
@@ -11,9 +12,12 @@ const NAME_MAX = 50
 // Updates the caller's own display name and/or avatar. Validation happens here
 // (trust boundary), then writes go through the admin client for the caller's row only.
 export async function POST(req: NextRequest) {
-  const supabaseAuth = await createServerSupabase()
-  const { data: { user } } = await supabaseAuth.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Audit C3: also rejects banned accounts, which middleware misses for /api/*.
+  const { user, error } = await getActiveUser()
+  if (error) return error
+
+  const limited = await limitUser(userLimiters.action, user.id)
+  if (limited) return limited
 
   let form: FormData
   try {
@@ -32,6 +36,9 @@ export async function POST(req: NextRequest) {
   if (typeof rawName === 'string') {
     const name = sanitize(rawName, NAME_MAX)
     if (!name) return NextResponse.json({ error: 'Name cannot be empty' }, { status: 400 })
+    if (containsProfanity(name)) {
+      return NextResponse.json({ error: 'Display name contains inappropriate language.' }, { status: 400 })
+    }
     metadata.name = name
     userRow.name = name
   }

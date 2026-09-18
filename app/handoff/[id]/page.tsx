@@ -358,14 +358,18 @@ export default function HandoffChat() {
     if (!isOwner) return;
     if (!confirm("Item returned? This will close the handoff permanently.")) return;
 
-    const [r1, r2, r3] = await Promise.all([
-      supabase.from("handoff_messages").update({ is_read: true }).eq("handoff_id", handoffId).eq("is_read", false),
-      supabase.from("handoffs").update({ status: "completed", completed_at: new Date().toISOString() }).eq("id", handoffId),
-      supabase.from("posts").update({ status: "resolved" }).eq("id", handoff!.post_id),
-    ]);
+    // Completion is fully server-side now (audit H4): the route verifies the
+    // caller is user_1 and re-checks the 2-messages-each rule with the
+    // service-role client instead of trusting this component.
+    const res = await fetch("/api/handoff/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ handoffId }),
+    });
 
-    if (r1.error || r2.error || r3.error) {
-      alert("Something went wrong completing the handoff. Please try again.");
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert((data as { error?: string }).error ?? "Something went wrong completing the handoff. Please try again.");
       return;
     }
 

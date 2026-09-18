@@ -118,9 +118,18 @@ export default function NewPost() {
 
     let photoUrl: string | null = null
     if (imageFile) {
-      const fileExt = imageFile.name.split('.').pop()?.toLowerCase()
+      // Extension derived from the VALIDATED mime type, not the filename (audit M5).
+      const extByType: Record<string, string> = {
+        'image/jpeg': 'jpg',
+        'image/png': 'png',
+        'image/webp': 'webp',
+        'image/gif': 'gif',
+      }
+      const fileExt = extByType[imageFile.type] ?? 'jpg'
       const fileName = `${user.id}-${Date.now()}.${fileExt}`
-      const { error: uploadError } = await supabase.storage.from('post-images').upload(fileName, imageFile)
+      const { error: uploadError } = await supabase.storage
+        .from('post-images')
+        .upload(fileName, imageFile, { contentType: imageFile.type })
       if (uploadError) { setError(`Image upload failed: ${uploadError.message}`); setLoading(false); return }
       photoUrl = fileName
     }
@@ -138,20 +147,8 @@ export default function NewPost() {
       return
     }
 
-    const { post: newPost } = await createRes.json() as { post: { id: string } }
-
-    if (newPost && cleaned.type === 'found' && cleaned.category) {
-      fetch('/api/match', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          postId: newPost.id,
-          category: cleaned.category,
-          title: cleaned.title,
-        }),
-      }).catch(() => {})
-    }
-
+    // Match notifications are generated server-side inside /api/posts/create
+    // now (audit H4) — no second client request that could be lost.
     router.push('/dashboard')
   }
 

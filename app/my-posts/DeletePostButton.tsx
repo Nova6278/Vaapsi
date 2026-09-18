@@ -1,52 +1,41 @@
 "use client";
-import { useState, useMemo } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createNotificationClient } from "@/lib/notifications-client";
 import { logError } from "@/lib/logger";
 
-export default function DeletePostButton({ postId, postTitle }: { postId: string; postTitle: string }) {
+export default function DeletePostButton({ postId }: { postId: string; postTitle?: string }) {
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const router = useRouter();
-  const supabase = useMemo(
-    () => createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    ),
-    []
-  );
 
   const handleDelete = async () => {
     setDeleting(true);
 
-    // 1. Fetch claimant IDs before cascade kills them
-    const { data: claims } = await supabase
-      .from("claims")
-      .select("claimant_id")
-      .eq("post_id", postId);
-
-    // 2. Delete FIRST
-    const { error } = await supabase.from("posts").delete().eq("id", postId);
-    if (error) {
-      logError("Delete failed:", error);
+    // Deletion is fully server-side now (audit M1): the route collects
+    // claimants BEFORE deleting, cleans up the storage image, and notifies
+    // claimants reliably. The old client flow deleted first and then hit
+    // /api/notify without a postId — a guaranteed 403, so claimants were
+    // never actually notified.
+    try {
+      const res = await fetch("/api/posts/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        logError("Delete failed:", data);
+        alert((data as { error?: string }).error ?? "Failed to delete post. Try again.");
+        setDeleting(false);
+        setConfirming(false);
+        return;
+      }
+    } catch (err) {
+      logError("Delete failed:", err);
       alert("Failed to delete post. Try again.");
       setDeleting(false);
       setConfirming(false);
       return;
-    }
-
-    // 3. Notify ONLY after confirmed delete
-    if (claims && claims.length > 0) {
-      const uniqueClaimants = [...new Set(claims.map((c) => c.claimant_id))];
-      await Promise.all(
-        uniqueClaimants.map((claimantId) =>
-          createNotificationClient({
-            userId: claimantId,
-            message: `Post "${postTitle}" was deleted by the poster. Your claim has been removed.`,
-          })
-        )
-      );
     }
 
     router.refresh();

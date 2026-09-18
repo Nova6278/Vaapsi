@@ -42,8 +42,20 @@ export default async function NotificationsPage() {
     }
   }
 
+  // Prefer the structured type column (audit M8); fall back to message-text
+  // matching only for rows created before the migration added it.
+  type NotifRow = { type?: string | null; message?: string | null }
+  const isConfirmed = (n: NotifRow) =>
+    n.type ? n.type === 'claim_confirmed' : !!n.message?.includes('confirmed')
+  const isRejected = (n: NotifRow) =>
+    n.type ? n.type === 'claim_rejected' : !!n.message?.includes('rejected')
+  const isMatch = (n: NotifRow) =>
+    n.type ? n.type === 'match' : !!n.message?.includes('might be your')
+  const isClaimSubmitted = (n: NotifRow) =>
+    n.type ? n.type === 'claim_submitted' : !!n.message?.includes('claimed your post')
+
   const confirmedPostIds = (notifications ?? [])
-    .filter(n => n.message?.includes('confirmed') && n.claims?.post_id)
+    .filter(n => isConfirmed(n) && n.claims?.post_id)
     .map(n => n.claims.post_id)
 
   const handoffMap: Record<string, string> = {}
@@ -58,10 +70,6 @@ export default async function NotificationsPage() {
       }
     }
   }
-
-  const isConfirmed = (msg: string) => msg.includes('confirmed')
-  const isRejected = (msg: string) => msg.includes('rejected')
-  const isMatch = (msg: string) => msg.includes('might be your')
 
   return (
     <main style={{ background: '#080c18', minHeight: '100vh' }} className="px-4 py-8">
@@ -83,9 +91,9 @@ export default async function NotificationsPage() {
 
         <div className="flex flex-col gap-3">
           {notifications?.map(n => {
-            const confirmed = isConfirmed(n.message)
-            const rejected = isRejected(n.message)
-            const match = isMatch(n.message)
+            const confirmed = isConfirmed(n)
+            const rejected = isRejected(n)
+            const match = isMatch(n)
             const claimPostId = n.claims?.post_id
             const handoffId = claimPostId ? handoffMap[claimPostId] : null
 
@@ -101,7 +109,7 @@ export default async function NotificationsPage() {
             } else if (confirmed && handoffId) {
               href = `/handoff/${handoffId}`
               linkLabel = 'Go to handoff →'
-            } else if (n.message?.includes('claimed your post') && claimPostId && claimPostExists) {
+            } else if (isClaimSubmitted(n) && claimPostId && claimPostExists) {
               href = `/my-posts/${claimPostId}`
               linkLabel = 'Review claims →'
             } else if (claimPostId && claimPostExists) {

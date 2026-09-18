@@ -63,6 +63,7 @@ export async function POST(req: Request) {
   const { error: notifError } = await admin.from('notifications').insert({
     user_id: updated.user_id,
     message,
+    type: 'admin',
     claim_id: null,
     post_id: null,
   })

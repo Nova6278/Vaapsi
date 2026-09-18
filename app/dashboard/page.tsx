@@ -58,9 +58,11 @@ export default function Dashboard() {
   )
 
   const fetchPosts = async () => {
+    // Explicit columns (audit M9) — '*' also shipped verification_question to
+    // every browser, and the dashboard doesn't need it.
     const { data } = await supabase
       .from('posts')
-      .select('*')
+      .select('id, title, type, category, location, description, photo_url, created_at, status')
       .eq('status', 'active')
       .order('created_at', { ascending: false })
     const rawPosts = (data as Post[]) ?? []

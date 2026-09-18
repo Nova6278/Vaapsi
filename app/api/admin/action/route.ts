@@ -49,6 +49,7 @@ export async function POST(req: Request) {
     await admin.from('notifications').insert({
       user_id: reportedUserId,
       message: '⚠️ Warning: Your account has received a report. Further violations will result in a permanent ban.',
+      type: 'admin',
       is_read: false,
     })
   } else if (action === 'ban') {
@@ -57,6 +58,7 @@ export async function POST(req: Request) {
     await admin.from('notifications').insert({
       user_id: reportedUserId,
       message: '🚫 Your account has been permanently banned from Vaapsi due to violations of community guidelines.',
+      type: 'admin',
       is_read: false,
     })
   } else if (action === 'unban') {
@@ -64,8 +66,13 @@ export async function POST(req: Request) {
     await admin.from('users').update({ is_banned: false, ban_reason: null, warning_issued: false }).eq('id', reportedUserId)
   } else if (action === 'delete') {
     if (!postId) return NextResponse.json({ error: 'Missing postId' }, { status: 400 })
+    // Fetch photo path first so storage can be cleaned up (audit M6).
+    const { data: post } = await admin.from('posts').select('photo_url').eq('id', postId).single()
     const { error: deleteError } = await admin.from('posts').delete().eq('id', postId)
     if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 })
+    if (post?.photo_url) {
+      await admin.storage.from('post-images').remove([post.photo_url])
+    }
   }
 
   return NextResponse.json({ success: true })

@@ -43,3 +43,9 @@ graphify-out/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local artifacts
+/test-results/
+/brag-output/
+/Claude outputs/
+__pycache__/

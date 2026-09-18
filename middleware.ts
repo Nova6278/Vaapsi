@@ -8,26 +8,29 @@ const redis = new Redis({
   token: process.env.UPSTASH_REDIS_REST_TOKEN!,
 })
 
+// Audit H1: these middleware limits are per-IP BACKSTOPS against anonymous
+// floods only. The campus sits behind a shared NAT, so the old tight limits
+// (5 posts/hour, 10 auth/min per IP) throttled the ENTIRE campus at once.
+// Real quotas are enforced per-user inside the API routes (lib/ratelimit.ts).
+// NOTE (audit H2): the auth limiter only throttles the login/signup PAGES.
+// Actual signInWithPassword/signUp calls go browser → Supabase directly and
+// never pass through here — configure brute-force limits in the Supabase
+// dashboard (Auth → Rate Limits); do not rely on this middleware for that.
 const limiters = {
   api: new Ratelimit({
     redis,
-    limiter: Ratelimit.slidingWindow(10, '1 m'),
+    limiter: Ratelimit.slidingWindow(120, '1 m'),
     prefix: 'rl:api',
   }),
   auth: new Ratelimit({
     redis,
-    limiter: Ratelimit.slidingWindow(10, '1 m'),
+    limiter: Ratelimit.slidingWindow(60, '1 m'),
     prefix: 'rl:auth',
   }),
   claim: new Ratelimit({
     redis,
-    limiter: Ratelimit.slidingWindow(5, '1 m'),
+    limiter: Ratelimit.slidingWindow(60, '1 m'),
     prefix: 'rl:claim',
-  }),
-  post: new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(5, '1 h'),
-    prefix: 'rl:post',
   }),
 }
 
@@ -199,15 +202,12 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // --- Rate limiting ---
+  // --- Rate limiting (per-IP backstop; per-user quotas live in the routes) ---
   let limiter: Ratelimit | null = null
   let isApiRoute = false
 
-  if (path === '/api/notify' || path === '/api/match' || path === '/api/handoff') {
+  if (path.startsWith('/api/')) {
     limiter = limiters.api
-    isApiRoute = true
-  } else if (path === '/api/posts/create') {
-    limiter = limiters.post
     isApiRoute = true
   } else if (path === '/signup' || path === '/login') {
     limiter = limiters.auth
@@ -216,7 +216,12 @@ export async function middleware(req: NextRequest) {
   }
 
   if (limiter) {
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1'
+    // Prefer x-real-ip (set by Vercel's proxy) — the first x-forwarded-for
+    // entry can be attacker-supplied on some setups (audit H1).
+    const ip =
+      req.headers.get('x-real-ip') ??
+      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+      '127.0.0.1'
     const identifier = `${ip}:${path}`
 
     try {
@@ -263,7 +268,11 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // --- Ban check on protected routes ---
+  // --- Ban check on protected PAGE routes ---
+  // NOTE (audit C3): the rate-limit branch above returns early for /api/*, so
+  // this check never runs for API calls. Every API route therefore enforces
+  // the ban itself via getActiveUser() in lib/auth-server.ts. This page-level
+  // check only handles the redirect UX for banned users browsing the site.
   const protectedRoutes = ['/dashboard', '/posts', '/my-posts', '/my-claims', '/profile', '/notifications', '/handoff', '/handoffs']
   const isProtected = protectedRoutes.some(r => path.startsWith(r))
 

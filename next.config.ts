@@ -2,9 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   devIndicators: false,
-  images: {
-    dangerouslyAllowSVG: true,
-  },
+  // dangerouslyAllowSVG removed (audit M4) — no remote SVGs are rendered
+  // through next/image, and allowing them invites scriptable-SVG XSS.
   experimental: {
     serverActions: {
       bodySizeLimit: '1mb',

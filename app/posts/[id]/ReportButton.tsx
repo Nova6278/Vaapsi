@@ -51,12 +51,15 @@ export default function ReportButton({ postId }: { postId: string }) {
       .eq('id', postId)
       .single()
 
-    await supabase.from('reports').insert({
+    const { error: insertError } = await supabase.from('reports').insert({
       post_id: postId,
       reporter_id: user.id,
       reported_user_id: post?.user_id,
       reason,
     })
+    // 23505 = unique violation from the (post_id, reporter_id) constraint
+    // (audit M10) — a double-submit race got past the pre-check above.
+    if (insertError?.code === '23505') setAlreadyReported(true)
     setSubmitted(true)
     setLoading(false)
   }

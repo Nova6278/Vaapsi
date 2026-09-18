@@ -61,8 +61,12 @@ export default async function AdminPage() {
 
   if (!user || user.email !== ADMIN_EMAIL) redirect('/dashboard')
 
-  // Suggestions are RLS-restricted to their owner; the admin reads them via the
-  // service-role client (gate above already confirmed the caller is the admin).
+  // Audit H5: ALL admin reads go through the service-role client. The old code
+  // read users/posts/reports with the session client, which required RLS to
+  // let a regular session read every user's row — meaning ANY logged-in user
+  // could dump all emails with the same anon key. RLS can now lock those
+  // tables down to own-row (see SECURITY_FIXES.sql) and this page still works,
+  // because the admin gate above already verified the caller.
   const adminDb = createAdminSupabase()
 
   const [
@@ -72,10 +76,10 @@ export default async function AdminPage() {
     { data: resolvedList },
     { data: suggestions },
   ] = await Promise.all([
-    supabase.from('posts').select('id, title, type, status, created_at, user_id, location').order('created_at', { ascending: false }),
-    supabase.from('reports').select('id, post_id, reporter_id, reported_user_id, reason, created_at').order('created_at', { ascending: false }),
-    supabase.from('users').select('id, email, name, is_banned, warning_issued, ban_reason').order('id'),
-    supabase.from('posts').select('id, type, status, updated_at').eq('status', 'resolved'),
+    adminDb.from('posts').select('id, title, type, status, created_at, user_id, location').order('created_at', { ascending: false }),
+    adminDb.from('reports').select('id, post_id, reporter_id, reported_user_id, reason, created_at').order('created_at', { ascending: false }),
+    adminDb.from('users').select('id, email, name, is_banned, warning_issued, ban_reason').order('id'),
+    adminDb.from('posts').select('id, type, status, updated_at').eq('status', 'resolved'),
     adminDb.from('suggestions').select('*').order('created_at', { ascending: false }),
   ])
 

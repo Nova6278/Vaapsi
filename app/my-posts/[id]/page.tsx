@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useParams, useRouter } from "next/navigation";
-import { createNotificationClient } from "@/lib/notifications-client";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -95,37 +94,27 @@ export default function PostClaims() {
     const claim = claims.find((c) => c.id === claimId);
     if (!claim || !post) return;
 
-    if (status === "confirmed") {
-      const { error: updateError } = await supabase.from("claims").update({ status }).eq("id", claimId);
-      if (updateError) { alert("Failed to confirm claim."); return; }
-      setClaims(claims.map((c) => (c.id === claimId ? { ...c, status } : c)));
+    // Decision is fully server-side now (audit H4/C2): the route verifies
+    // ownership, enforces single-confirmation, creates the handoff atomically,
+    // and notifies the claimant with a fixed template.
+    const res = await fetch("/api/claims/decide", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ claimId, decision: status }),
+    });
 
-      const res = await fetch("/api/handoff", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, claimantId: claim.claimant_id }),
-      });
-      if (!res.ok) {
-        await supabase.from("claims").update({ status: "pending" }).eq("id", claimId);
-        setClaims(claims.map((c) => (c.id === claimId ? { ...c, status: "pending" } : c)));
-        alert("Failed to create handoff. Please try again.");
-        return;
-      }
-      const handoffData = await res.json();
-      setToastHandoffId(handoffData.handoffId ?? null);
-    } else {
-      await supabase.from("claims").update({ status }).eq("id", claimId);
-      setClaims(claims.map((c) => (c.id === claimId ? { ...c, status } : c)));
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert((data as { error?: string }).error ?? `Failed to ${status === "confirmed" ? "confirm" : "reject"} claim.`);
+      return;
     }
 
-    await createNotificationClient({
-      userId: claim.claimant_id,
-      message: status === "confirmed"
-        ? `Your claim for "${post.title}" was confirmed! 🎉`
-        : `Your claim for "${post.title}" was rejected.`,
-      claimId,
-      postId,
-    });
+    setClaims(claims.map((c) => (c.id === claimId ? { ...c, status } : c)));
+
+    if (status === "confirmed") {
+      const handoffData = (await res.json()) as { handoffId?: string | null };
+      setToastHandoffId(handoffData.handoffId ?? null);
+    }
   };
 
   useEffect(() => {

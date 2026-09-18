@@ -161,9 +161,18 @@ export default function EditPost() {
 
     let photoUrl: string | null = existingImagePath
     if (imageFile) {
-      const fileExt = imageFile.name.split('.').pop()?.toLowerCase()
+      // Extension derived from the VALIDATED mime type, not the filename (audit M5).
+      const extByType: Record<string, string> = {
+        'image/jpeg': 'jpg',
+        'image/png': 'png',
+        'image/webp': 'webp',
+        'image/gif': 'gif',
+      }
+      const fileExt = extByType[imageFile.type] ?? 'jpg'
       const fileName = `${user.id}-${Date.now()}.${fileExt}`
-      const { error: uploadError } = await supabase.storage.from('post-images').upload(fileName, imageFile)
+      const { error: uploadError } = await supabase.storage
+        .from('post-images')
+        .upload(fileName, imageFile, { contentType: imageFile.type })
       if (uploadError) { setError(`Image upload failed: ${uploadError.message}`); setLoading(false); return }
       if (existingImagePath) {
         await supabase.storage.from('post-images').remove([existingImagePath])
