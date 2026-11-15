@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import { sanitize, LIMITS, containsProfanity } from '@/lib/sanitize'
 import { isValidImage, MAX_POST_IMAGE } from '@/lib/validate-image'
@@ -46,10 +46,7 @@ export default function EditPost() {
   })
 
   const supabase = useMemo(
-    () => createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    ),
+    () => createClient(),
     []
   )
 

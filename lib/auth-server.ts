@@ -50,3 +50,16 @@ export async function getActiveUser(
 export function isAdminUser(user: User): boolean {
   return !!process.env.ADMIN_EMAIL && user.email === process.env.ADMIN_EMAIL
 }
+
+/**
+ * Admin gate for /api/admin/* routes.
+ * Returns a 403 response for anyone but the admin, otherwise null.
+ */
+export async function requireAdmin(): Promise<NextResponse | null> {
+  const supabase = await createServerSupabase()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || !isAdminUser(user)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+  return null
+}

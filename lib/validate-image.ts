@@ -20,5 +20,8 @@ export async function isValidImage(file: File): Promise<boolean> {
   return check(bytes)
 }
 
+/** Storage object names we generate client-side: `<uuid>-<timestamp>.<ext>` (audit H3/M5). */
+export const STORAGE_IMAGE_PATH_RE = /^[a-f0-9-]{36}-\d{10,16}\.(jpe?g|png|webp|gif)$/i
+
 export const MAX_POST_IMAGE = 2 * 1024 * 1024
 export const MAX_PROOF_IMAGE = 5 * 1024 * 1024

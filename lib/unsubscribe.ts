@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto'
+import { SITE_URL } from '@/lib/constants'
 
 /**
  * HMAC signing for one-click unsubscribe links (audit H3).
@@ -18,5 +19,5 @@ export function signUnsubscribe(userId: string): string | null {
 export function unsubscribeUrl(userId: string): string | null {
   const sig = signUnsubscribe(userId)
   if (!sig) return null
-  return `https://vaapsi.live/api/unsubscribe?uid=${encodeURIComponent(userId)}&sig=${sig}`
+  return `${SITE_URL}/api/unsubscribe?uid=${encodeURIComponent(userId)}&sig=${sig}`
 }

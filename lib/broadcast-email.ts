@@ -2,13 +2,14 @@ import { Resend } from 'resend'
 import { createAdminSupabase } from '@/lib/supabase-admin'
 import { unsubscribeUrl } from '@/lib/unsubscribe'
 import { logError } from '@/lib/logger'
+import { escapeHtml } from '@/lib/sanitize'
+import { STORAGE_IMAGE_PATH_RE } from '@/lib/validate-image'
+import { EMAIL_FROM, SITE_URL } from '@/lib/constants'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 const BATCH_SIZE = 100
-
-/** Storage object names we generate: `<uuid>-<timestamp>.<ext>` (audit H3). */
-const IMAGE_PATH_RE = /^[a-f0-9-]{36}-\d{10,16}\.(jpe?g|png|webp|gif)$/i
+const SIGNED_IMAGE_URL_TTL_SECONDS = 60 * 60 * 24 * 7
 
 export type BroadcastPost = {
   id: string
@@ -19,21 +20,12 @@ export type BroadcastPost = {
   image_url: string | null
 }
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
-}
-
 function buildEmailHtml(post: BroadcastPost, imageUrl: string | null, unsubLink: string | null): string {
   const isFound = post.type === 'found'
   const typeLabel = isFound ? 'Found' : 'Lost'
   const badgeBg = isFound ? '#14301f' : '#3d1515'
   const badgeText = isFound ? '#4ade80' : '#f87171'
-  const postUrl = `https://vaapsi.live/posts/${post.id}`
+  const postUrl = `${SITE_URL}/posts/${post.id}`
 
   const imageBlock = imageUrl
     ? `<img src="${escapeHtml(imageUrl)}" alt="Post image" width="480"
@@ -125,11 +117,12 @@ export async function broadcastNewPostEmail(
   if (!users?.length) return
 
   let imageUrl: string | null = null
-  if (post.image_url && IMAGE_PATH_RE.test(post.image_url)) {
+  if (post.image_url && STORAGE_IMAGE_PATH_RE.test(post.image_url)) {
     try {
-      const { data: signed } = await supabase.storage
+      const { data: signed, error: signError } = await supabase.storage
         .from('post-images')
-        .createSignedUrl(post.image_url, 60 * 60 * 24 * 7)
+        .createSignedUrl(post.image_url, SIGNED_IMAGE_URL_TTL_SECONDS)
+      if (signError) logError('broadcastNewPostEmail: signed url failed', signError)
       imageUrl = signed?.signedUrl ?? null
     } catch (err) {
       logError('broadcastNewPostEmail: signed url failed', err)
@@ -139,14 +132,13 @@ export async function broadcastNewPostEmail(
   const typeLabel = post.type === 'found' ? 'Found' : 'Lost'
   const subject = `New ${typeLabel} post: ${post.title}`
 
-  const recipients = users
-
-  for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
-    const batch = recipients.slice(i, i + BATCH_SIZE)
+  for (let i = 0; i < users.length; i += BATCH_SIZE) {
+    const batch = users.slice(i, i + BATCH_SIZE)
+    const batchLabel = `broadcastNewPostEmail: batch ${Math.floor(i / BATCH_SIZE) + 1} failed`
     const messages = batch.map((u) => {
       const unsubLink = unsubscribeUrl(u.id)
       return {
-        from: 'Vaapsi <noreply@vaapsi.live>',
+        from: EMAIL_FROM,
         to: u.email as string,
         subject,
         html: buildEmailHtml(post, imageUrl, unsubLink),
@@ -162,9 +154,11 @@ export async function broadcastNewPostEmail(
     })
 
     try {
-      await resend.batch.send(messages)
+      // Resend resolves with { error } on API failures instead of throwing.
+      const { error: sendError } = await resend.batch.send(messages)
+      if (sendError) logError(batchLabel, sendError)
     } catch (err) {
-      logError(`broadcastNewPostEmail: batch ${Math.floor(i / BATCH_SIZE) + 1} failed`, err)
+      logError(batchLabel, err)
     }
   }
 }

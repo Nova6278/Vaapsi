@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import { logError } from '@/lib/logger'
 import { sanitize, LIMITS } from '@/lib/sanitize'
@@ -22,10 +22,7 @@ export default function ClaimPost() {
   const [proofPreview, setProofPreview] = useState<string | null>(null)
 
   useEffect(() => {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    const supabase = createClient()
 
     Promise.all([
       supabase.from('posts').select('title, location, type, verification_question, user_id').eq('id', postId).single(),
@@ -109,10 +106,7 @@ export default function ClaimPost() {
     const { claimId } = (await res.json()) as { claimId: string }
 
     if (proofFile && claimId) {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
+      const supabase = createClient()
       // Extension derived from the VALIDATED mime type, not the filename (audit M5).
       const extByType: Record<string, string> = {
         'image/jpeg': 'jpg',

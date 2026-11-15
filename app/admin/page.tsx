@@ -1,5 +1,6 @@
 import { createServerSupabase } from '@/lib/supabase-server'
 import { createAdminSupabase } from '@/lib/supabase-admin'
+import { isAdminUser } from '@/lib/auth-server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import AdminActions from './AdminActions'
@@ -53,13 +54,11 @@ type SuggestionRow = {
 // Admin must always see live reports/suggestions, never a cached render.
 export const dynamic = 'force-dynamic'
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL!
-
 export default async function AdminPage() {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user || user.email !== ADMIN_EMAIL) redirect('/dashboard')
+  if (!user || !isAdminUser(user)) redirect('/dashboard')
 
   // Audit H5: ALL admin reads go through the service-role client. The old code
   // read users/posts/reports with the session client, which required RLS to

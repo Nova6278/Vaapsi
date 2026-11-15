@@ -14,6 +14,16 @@ export function sanitize(input: string, maxLength?: number): string {
   return cleaned
 }
 
+/** Escapes text for interpolation into HTML (email templates). */
+export function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
 /** Field length limits */
 export const LIMITS = {
   title: 100,
@@ -22,12 +32,6 @@ export const LIMITS = {
   description: 500,
   verification_question: 200,
   claim_answer: 300,
-} as const
-
-/** Allowed image types and max size (2MB) */
-export const IMAGE_RULES = {
-  allowedTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
-  maxSizeBytes: 2 * 1024 * 1024,
 } as const
 
 /** Profanity / slang filter (deduped via Set as a safety net) */
@@ -105,13 +109,17 @@ function normalizeText(text: string): string {
     .replace(/\./g, '')
 }
 
+// Compiled once at module load instead of once per word per call.
+// Multi-word phrases are matched as plain substrings; single words on word boundaries.
+const BANNED_PHRASES = BANNED_WORDS.filter(word => word.includes(' '))
+const BANNED_WORD_PATTERNS = BANNED_WORDS
+  .filter(word => !word.includes(' '))
+  .map(word => new RegExp(`\\b${word}\\b`, 'i'))
+
 export function containsProfanity(text: string): boolean {
   const normalized = normalizeText(text)
-  return BANNED_WORDS.some(word => {
-    if (word.includes(' ')) {
-      return normalized.includes(word)
-    }
-    const regex = new RegExp(`\\b${word}\\b`, 'i')
-    return regex.test(normalized)
-  })
+  return (
+    BANNED_PHRASES.some(phrase => normalized.includes(phrase)) ||
+    BANNED_WORD_PATTERNS.some(pattern => pattern.test(normalized))
+  )
 }

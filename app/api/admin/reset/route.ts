@@ -1,36 +1,26 @@
-import { createClient } from '@supabase/supabase-js'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/auth-server'
+import { createAdminSupabase } from '@/lib/supabase-admin'
+import { logError } from '@/lib/logger'
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL!
+// PostgREST refuses unfiltered deletes; "id != nil uuid" matches every row.
+const NIL_UUID = '00000000-0000-0000-0000-000000000000'
+
+// Children before parents (FK order).
+const TABLES_TO_CLEAR = ['handoff_messages', 'handoffs', 'notifications', 'reports', 'claims', 'suggestions', 'posts'] as const
 
 export async function POST() {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll() } }
-  )
+  const forbidden = await requireAdmin()
+  if (forbidden) return forbidden
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.email !== ADMIN_EMAIL) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const admin = createAdminSupabase()
+
+  for (const table of TABLES_TO_CLEAR) {
+    const { error } = await admin.from(table).delete().neq('id', NIL_UUID)
+    if (error) logError(`admin/reset: clearing ${table} failed`, error)
   }
-
-  const admin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-
-  await admin.from('handoff_messages').delete().neq('id', '00000000-0000-0000-0000-000000000000')
-  await admin.from('handoffs').delete().neq('id', '00000000-0000-0000-0000-000000000000')
-  await admin.from('notifications').delete().neq('id', '00000000-0000-0000-0000-000000000000')
-  await admin.from('reports').delete().neq('id', '00000000-0000-0000-0000-000000000000')
-  await admin.from('claims').delete().neq('id', '00000000-0000-0000-0000-000000000000')
-  await admin.from('suggestions').delete().neq('id', '00000000-0000-0000-0000-000000000000')
-  await admin.from('posts').delete().neq('id', '00000000-0000-0000-0000-000000000000')
-  await admin.from('users').update({ tutorial_done: false }).neq('id', '00000000-0000-0000-0000-000000000000')
+  const { error: tutorialError } = await admin.from('users').update({ tutorial_done: false }).neq('id', NIL_UUID)
+  if (tutorialError) logError('admin/reset: tutorial reset failed', tutorialError)
 
   return NextResponse.json({ success: true })
 }

@@ -1,6 +1,8 @@
 import { Resend } from 'resend'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { logError } from '@/lib/logger'
+import { escapeHtml } from '@/lib/sanitize'
+import { EMAIL_FROM, SITE_URL } from '@/lib/constants'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -11,15 +13,6 @@ export type NotificationType =
   | 'post_deleted'
   | 'match'
   | 'admin'
-
-export function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
-}
 
 /**
  * Server-only notification helper (audit C2 / M1).
@@ -61,15 +54,16 @@ export async function sendNotification(
     if (userError || !userData?.user?.email) return
 
     const safeMessage = escapeHtml(opts.message)
-    await resend.emails.send({
-      from: 'Vaapsi <noreply@vaapsi.live>',
+    // Resend resolves with { error } on API failures instead of throwing.
+    const { error: sendError } = await resend.emails.send({
+      from: EMAIL_FROM,
       to: userData.user.email,
       subject: opts.emailSubject ?? 'New notification from Vaapsi',
       html: `
         <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
           <h2 style="color: #111;">Vaapsi — Lost &amp; Found</h2>
           <p style="font-size: 16px; color: #333;">${safeMessage}</p>
-          <a href="https://vaapsi.live/notifications"
+          <a href="${SITE_URL}/notifications"
              style="display: inline-block; margin-top: 16px; padding: 10px 20px;
                     background: #000; color: #fff; border-radius: 8px;
                     text-decoration: none; font-weight: 600;">
@@ -81,6 +75,7 @@ export async function sendNotification(
         </div>
       `,
     })
+    if (sendError) logError('sendNotification: email failed', sendError)
   } catch (err) {
     logError('sendNotification: email failed', err)
   }

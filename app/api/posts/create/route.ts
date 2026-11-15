@@ -1,5 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { after } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { z } from 'zod'
 import { getActiveUser } from '@/lib/auth-server'
 import { createAdminSupabase } from '@/lib/supabase-admin'
@@ -7,9 +6,9 @@ import { userLimiters, limitUser } from '@/lib/ratelimit'
 import { sanitize, LIMITS, containsProfanity } from '@/lib/sanitize'
 import { broadcastNewPostEmail } from '@/lib/broadcast-email'
 import { logError } from '@/lib/logger'
+import { STORAGE_IMAGE_PATH_RE } from '@/lib/validate-image'
 
-/** Storage object names we generate client-side: `<uuid>-<timestamp>.<ext>` (audit H3/M5). */
-const PHOTO_PATH_RE = /^[a-f0-9-]{36}-\d{10,16}\.(jpe?g|png|webp|gif)$/i
+const MAX_MATCH_NOTIFICATIONS = 10
 
 const createPostSchema = z.object({
   type: z.enum(['lost', 'found']),
@@ -18,7 +17,7 @@ const createPostSchema = z.object({
   location: z.string().min(1).max(LIMITS.location),
   description: z.string().max(LIMITS.description).optional().default(''),
   verification_question: z.string().max(LIMITS.verification_question).optional().default(''),
-  photo_url: z.string().regex(PHOTO_PATH_RE, 'Invalid photo path').nullable().optional(),
+  photo_url: z.string().regex(STORAGE_IMAGE_PATH_RE, 'Invalid photo path').nullable().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -133,7 +132,7 @@ async function notifyMatches(
     .eq('category', category)
     .eq('status', 'active')
     .neq('user_id', authorId)
-    .limit(10)
+    .limit(MAX_MATCH_NOTIFICATIONS)
 
   if (!matches?.length) return
 
@@ -148,5 +147,6 @@ async function notifyMatches(
     post_id: postId,
   }))
 
-  await supabase.from('notifications').insert(notifications)
+  const { error } = await supabase.from('notifications').insert(notifications)
+  if (error) logError('notifyMatches: insert failed', error)
 }

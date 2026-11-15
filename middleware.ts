@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { createServerClient } from '@supabase/ssr'
+import { logError } from '@/lib/logger'
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -38,6 +39,19 @@ const limiters = {
 // does NOT set CSP — see its headers()). unsafe-eval is dev-only; wss://*.supabase.co
 // is required for Supabase Realtime; the vercel domains cover analytics/speed-insights.
 const isDev = process.env.NODE_ENV === 'development'
+
+// Origins allowed to make state-changing /api/* requests (CSRF check).
+const ALLOWED_ORIGINS = [
+  'https://vaapsi.vercel.app',
+  'https://vaapsi.live',
+  'https://www.vaapsi.live',
+  ...(isDev ? ['http://localhost:3000'] : []),
+]
+
+const CLAIM_PAGE_RE = /^\/posts\/[^/]+\/claim$/
+
+// Page routes that redirect banned users to /banned.
+const PROTECTED_ROUTES = ['/dashboard', '/posts', '/my-posts', '/my-claims', '/profile', '/notifications', '/handoff', '/handoffs']
 
 const scriptSrc = [
   "'self'",
@@ -84,6 +98,14 @@ function applySecurityHeaders(response: NextResponse) {
     response.headers.set(key, value)
   })
   return response
+}
+
+function rateLimitHeaders(limit: number, remaining: number, reset: number): Record<string, string> {
+  return {
+    'X-RateLimit-Limit': limit.toString(),
+    'X-RateLimit-Remaining': remaining.toString(),
+    'X-RateLimit-Reset': reset.toString(),
+  }
 }
 
 function rateLimitHtml(retryAfter: number) {
@@ -184,15 +206,9 @@ export async function middleware(req: NextRequest) {
   // --- CSRF protection on API routes ---
   if (path.startsWith('/api/')) {
     const origin = req.headers.get('origin')
-    const allowedOrigins = [
-  'https://vaapsi.vercel.app',
-  'https://vaapsi.live',
-  'https://www.vaapsi.live',
-  ...(process.env.NODE_ENV === 'development' ? ['http://localhost:3000'] : []),
-]
 
     if (req.method !== 'GET' && req.method !== 'HEAD') {
-      if (!origin || !allowedOrigins.includes(origin)) {
+      if (!origin || !ALLOWED_ORIGINS.includes(origin)) {
         const res = NextResponse.json(
           { error: 'Forbidden — invalid origin' },
           { status: 403 }
@@ -211,7 +227,7 @@ export async function middleware(req: NextRequest) {
     isApiRoute = true
   } else if (path === '/signup' || path === '/login') {
     limiter = limiters.auth
-  } else if (path.match(/^\/posts\/[^/]+\/claim$/)) {
+  } else if (CLAIM_PAGE_RE.test(path)) {
     limiter = limiters.claim
   }
 
@@ -227,44 +243,31 @@ export async function middleware(req: NextRequest) {
     try {
       const { success, limit, remaining, reset } = await limiter.limit(identifier)
 
+      const limitHeaders = rateLimitHeaders(limit, remaining, reset)
+
       if (!success) {
         if (isApiRoute) {
           const res = NextResponse.json(
             { error: 'Too many requests. Please slow down.' },
-            {
-              status: 429,
-              headers: {
-                'X-RateLimit-Limit': limit.toString(),
-                'X-RateLimit-Remaining': remaining.toString(),
-                'X-RateLimit-Reset': reset.toString(),
-              },
-            }
+            { status: 429, headers: limitHeaders }
           )
           return applySecurityHeaders(res)
         }
 
         const res = new NextResponse(rateLimitHtml(reset), {
           status: 429,
-          headers: {
-            'Content-Type': 'text/html',
-            'X-RateLimit-Limit': limit.toString(),
-            'X-RateLimit-Remaining': remaining.toString(),
-            'X-RateLimit-Reset': reset.toString(),
-          },
+          headers: { 'Content-Type': 'text/html', ...limitHeaders },
         })
         return applySecurityHeaders(res)
       }
 
       const response = NextResponse.next()
-      response.headers.set('X-RateLimit-Limit', limit.toString())
-      response.headers.set('X-RateLimit-Remaining', remaining.toString())
-      response.headers.set('X-RateLimit-Reset', reset.toString())
+      Object.entries(limitHeaders).forEach(([key, value]) => response.headers.set(key, value))
       return applySecurityHeaders(response)
-
-    } catch {
+    } catch (err) {
       // Redis unavailable — fail open, let request through
-      const response = NextResponse.next()
-      return applySecurityHeaders(response)
+      logError('middleware: rate limiter unavailable, failing open', err)
+      return applySecurityHeaders(NextResponse.next())
     }
   }
 
@@ -273,8 +276,7 @@ export async function middleware(req: NextRequest) {
   // this check never runs for API calls. Every API route therefore enforces
   // the ban itself via getActiveUser() in lib/auth-server.ts. This page-level
   // check only handles the redirect UX for banned users browsing the site.
-  const protectedRoutes = ['/dashboard', '/posts', '/my-posts', '/my-claims', '/profile', '/notifications', '/handoff', '/handoffs']
-  const isProtected = protectedRoutes.some(r => path.startsWith(r))
+  const isProtected = PROTECTED_ROUTES.some(r => path.startsWith(r))
 
   if (isProtected) {
     const supabase = createServerClient(
@@ -297,8 +299,7 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  const response = NextResponse.next()
-  return applySecurityHeaders(response)
+  return applySecurityHeaders(NextResponse.next())
 }
 
 export const config = {

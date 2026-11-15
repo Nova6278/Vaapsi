@@ -1,8 +1,7 @@
-import { MetadataRoute } from "next";
+import type { MetadataRoute } from "next";
+import { SITE_URL as siteUrl } from "@/lib/constants";
 
 export default function robots(): MetadataRoute.Robots {
-  const siteUrl = "https://vaapsi.live";
-
   return {
     rules: {
       userAgent: "*",

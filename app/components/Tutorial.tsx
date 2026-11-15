@@ -1,12 +1,9 @@
 "use client";
 
 import { useState, useEffect, useLayoutEffect, useCallback } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { createClient } from "@/lib/supabase";
 
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabase = createClient();
 
 import { DEMO_ACCOUNT_IDS } from "@/lib/demo";
 

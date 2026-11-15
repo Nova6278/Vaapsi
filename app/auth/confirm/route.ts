@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import type { EmailOtpType } from '@supabase/supabase-js'
+import { createServerSupabase } from '@/lib/supabase-server'
+
+const KIIT_DOMAIN = '@kiit.ac.in'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -8,25 +10,10 @@ export async function GET(request: NextRequest) {
   const token_hash = searchParams.get('token_hash')
   const type = searchParams.get('type')
 
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (cookiesToSet) => {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          )
-        },
-      },
-    }
-  )
+  const supabase = await createServerSupabase()
 
   // Server-side enforcement: only @kiit.ac.in emails may hold a session.
   // Client-side signup check is bypassable, so re-validate at the callback.
-  const KIIT_DOMAIN = '@kiit.ac.in'
   const enforceDomain = async (): Promise<NextResponse | null> => {
     const { data: { user } } = await supabase.auth.getUser()
     if (user?.email && !user.email.endsWith(KIIT_DOMAIN)) {
@@ -48,7 +35,7 @@ export async function GET(request: NextRequest) {
   if (token_hash && type) {
     const { error } = await supabase.auth.verifyOtp({
       token_hash,
-      type: type as import('@supabase/supabase-js').EmailOtpType
+      type: type as EmailOtpType,
     })
     if (!error) {
       const domainError = await enforceDomain()

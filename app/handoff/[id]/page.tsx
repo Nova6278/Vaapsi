@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { createClient } from "@/lib/supabase";
 import { useParams, useRouter } from "next/navigation";
 import { sanitize } from "@/lib/sanitize";
 import { logError } from "@/lib/logger";
@@ -52,12 +52,20 @@ export default function HandoffChat() {
   const [realtimeHealthy, setRealtimeHealthy] = useState(true);
 
   const supabase = useMemo(
-    () => createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    ),
+    () => createClient(),
     []
   );
+
+  // After a handoff completes, nudge users who still have an active "lost" post.
+  const promptIfLostPostActive = useCallback(async (ownerId: string) => {
+    const { data: lostPosts } = await supabase
+      .from("posts")
+      .select("id")
+      .eq("user_id", ownerId)
+      .eq("type", "lost")
+      .eq("status", "active");
+    if (lostPosts && lostPosts.length > 0) setShowLostPostPrompt(true);
+  }, [supabase]);
 
   useEffect(() => {
     audioRef.current = new Audio("/sounds/notification.wav");
@@ -129,9 +137,12 @@ export default function HandoffChat() {
     try {
       if (audioRef.current) {
         audioRef.current.currentTime = 0;
+        // Rejects when the browser blocks autoplay — expected, nothing to do.
         audioRef.current.play().catch(() => {});
       }
-    } catch {}
+    } catch (err) {
+      logError("[handoff] notification sound failed", err);
+    }
 
     if (!document.hasFocus() && notifPermission === "granted") {
       try {
@@ -144,7 +155,10 @@ export default function HandoffChat() {
           window.focus();
           n.close();
         };
-      } catch {}
+      } catch (err) {
+        // Some browsers (e.g. Android Chrome) throw on `new Notification`.
+        logError("[handoff] desktop notification failed", err);
+      }
     }
   }, [notifPermission, handoffId]);
 
@@ -175,11 +189,15 @@ export default function HandoffChat() {
 
           if (msg.sender_id !== userId) {
             notifyNewMessage(msg.content);
-            // Mark the incoming message as read
+            // Mark the incoming message as read. Supabase builders are lazy:
+            // without .then() the request was never sent.
             supabase
               .from("handoff_messages")
               .update({ is_read: true })
-              .eq("id", msg.id);
+              .eq("id", msg.id)
+              .then(({ error }) => {
+                if (error) logError("[handoff] mark-as-read failed", error);
+              });
           }
 
           setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
@@ -195,17 +213,7 @@ export default function HandoffChat() {
           prevHandoffStatusRef.current = updatedHandoff.status;
           setHandoff(updatedHandoff);
 
-          if (wasActive && nowComplete && userId) {
-            supabase
-              .from("posts")
-              .select("id")
-              .eq("user_id", userId)
-              .eq("type", "lost")
-              .eq("status", "active")
-              .then(({ data: lostPosts }) => {
-                if (lostPosts && lostPosts.length > 0) setShowLostPostPrompt(true);
-              });
-          }
+          if (wasActive && nowComplete && userId) void promptIfLostPostActive(userId);
         }
       )
       .subscribe((status) => {
@@ -222,7 +230,7 @@ export default function HandoffChat() {
       clearTimeout(graceTimer);
       supabase.removeChannel(channel);
     };
-  }, [handoffId, userId, notifyNewMessage, supabase]);
+  }, [handoffId, userId, notifyNewMessage, promptIfLostPostActive, supabase]);
 
   // Polling fallback: runs only while Realtime is unhealthy. Merges server truth
   // with any not-yet-persisted optimistic messages, deduped by id.
@@ -252,15 +260,7 @@ export default function HandoffChat() {
           const nowComplete = updatedHandoff.status === "completed";
           prevHandoffStatusRef.current = updatedHandoff.status;
           setHandoff(updatedHandoff as HandoffRow);
-          if (wasActive && nowComplete && userId) {
-            const { data: lostPosts } = await supabase
-              .from("posts")
-              .select("id")
-              .eq("user_id", userId)
-              .eq("type", "lost")
-              .eq("status", "active");
-            if (lostPosts && lostPosts.length > 0) setShowLostPostPrompt(true);
-          }
+          if (wasActive && nowComplete && userId) await promptIfLostPostActive(userId);
         }
 
         if (msgs) {
@@ -298,7 +298,7 @@ export default function HandoffChat() {
     pollOnce();
     const interval = setInterval(pollOnce, 2000);
     return () => clearInterval(interval);
-  }, [handoffId, userId, realtimeHealthy, notifyNewMessage, supabase]);
+  }, [handoffId, userId, realtimeHealthy, notifyNewMessage, promptIfLostPostActive, supabase]);
 
   const sendMessage = useCallback(async () => {
     if (!newMsg.trim() || sending || handoff?.status !== "active") return;
@@ -361,29 +361,29 @@ export default function HandoffChat() {
     // Completion is fully server-side now (audit H4): the route verifies the
     // caller is user_1 and re-checks the 2-messages-each rule with the
     // service-role client instead of trusting this component.
-    const res = await fetch("/api/handoff/complete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ handoffId }),
-    });
+    const failureMessage = "Something went wrong completing the handoff. Please try again.";
+    let res: Response;
+    try {
+      res = await fetch("/api/handoff/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ handoffId }),
+      });
+    } catch (err) {
+      // Network failure used to surface as an unhandled rejection with no feedback.
+      logError("[handoff] complete request failed", err);
+      alert(failureMessage);
+      return;
+    }
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      alert((data as { error?: string }).error ?? "Something went wrong completing the handoff. Please try again.");
+      alert((data as { error?: string }).error ?? failureMessage);
       return;
     }
 
     setHandoff(prev => prev ? { ...prev, status: "completed" } : null);
-    if (userId) {
-  const { data: lostPosts } = await supabase
-    .from("posts")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("type", "lost")
-    .eq("status", "active")
-    
-  if (lostPosts && lostPosts.length > 0) setShowLostPostPrompt(true);
-}
+    if (userId) await promptIfLostPostActive(userId);
   };
 
   const myMsgCount = messages.filter((m) => m.sender_id === userId).length;
